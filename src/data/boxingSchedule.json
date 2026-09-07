@@ -1,0 +1,54 @@
+{
+  "updatedAt": "2026-09-07",
+  "note": "ボクシングは安定した無料APIが無いため手動で更新しています。「ボクシングの日程を更新して」と言ってもらえれば最新情報に更新します。",
+  "fights": [
+    {
+      "date": "2026-09-11",
+      "venue": "Frontwave Arena, Oceanside",
+      "cardName": "Giovani Santillan vs Abass Baraou",
+      "broadcast": "ProBox TV"
+    },
+    {
+      "date": "2026-09-12",
+      "venue": "T-Mobile Arena, Las Vegas",
+      "cardName": "Ryan Garcia vs Conor Benn（WBC世界ウェルター級王座）",
+      "broadcast": "Paramount+ / DAZN PPV"
+    },
+    {
+      "date": "2026-09-19",
+      "venue": "Pechanga Arena, San Diego",
+      "cardName": "Isaac Cruz vs Nestor Bravo",
+      "broadcast": ""
+    },
+    {
+      "date": "2026-09-25",
+      "venue": "T-Mobile Arena, Las Vegas",
+      "cardName": "Floyd Mayweather vs Manny Pacquiao",
+      "broadcast": "Netflix"
+    },
+    {
+      "date": "2026-09-26",
+      "venue": "Copper Box Arena, London",
+      "cardName": "Johnny Fisher vs TBA（ヘビー級）",
+      "broadcast": "Sky Sports"
+    },
+    {
+      "date": "2026-10-03",
+      "venue": "BP Pulse Live, Birmingham",
+      "cardName": "Ben Whittaker vs Conor Wallace（IBF ライトヘビー級 最終予選）",
+      "broadcast": "DAZN"
+    },
+    {
+      "date": "2026-10-10",
+      "venue": "Wintrust Arena, Chicago",
+      "cardName": "Floyd Schofield vs Lucas Bahdi",
+      "broadcast": "DAZN"
+    },
+    {
+      "date": "2026-10-17",
+      "venue": "O2 Arena, Greenwich, London",
+      "cardName": "Daniel Dubois vs Fabio Wardley（WBO世界ヘビー級王座防衛戦）",
+      "broadcast": "DAZN PPV"
+    }
+  ]
+}
