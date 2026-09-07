@@ -1,0 +1,42 @@
+name: Update Sports Data
+
+# ブラウザから直接ESPNの公開APIを叩くとCORSでブロックされるため、
+# ここ(GitHub Actionsのサーバー環境)で定期的にデータを取得し、
+# public/data/*.json としてコミットする。main へのpushで deploy.yml が
+# 走り、最新データを含んだサイトが自動で再公開される。
+on:
+  schedule:
+    - cron: '*/15 * * * *' # 15分おき(UTC)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-sports-data
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch ESPN data
+        run: node scripts/fetch-espn-data.mjs
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "sports-mania-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add public/data
+          if git diff --cached --quiet; then
+            echo "変更なし。スキップします。"
+          else
+            git commit -m "chore(data): update sports data"
+            git push
+          fi

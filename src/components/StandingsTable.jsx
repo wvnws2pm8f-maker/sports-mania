@@ -1,14 +1,18 @@
 // groups: [{ groupName, rows: [{team, logo, rank, wins, losses, ties, winPercent, gamesBehind, streak, points, gamesPlayed, goalDiff}] }]
-// サッカー系(points/gamesPlayed/goalDiffがある)とUSスポーツ系(winPercent/gamesBehindがある)で表示列を切り替える
-export default function StandingsTable({ groups }) {
+// variant: 'soccer' | 'us' で表示列を切り替える。
+// (以前はrowsの中身から推測していたが、ESPNのNBA順位表にもたまたま
+//  "points"という名前の統計(得失点差寄りの値)が入っていて誤判定していたため、
+//  呼び出し側から明示的に渡す方式にした)
+export default function StandingsTable({ groups, variant = 'us' }) {
   if (!groups || groups.length === 0) {
     return <p className="muted">順位表を取得できませんでした</p>
   }
 
+  const isSoccerStyle = variant === 'soccer'
+
   return (
     <div className="standings-wrap">
       {groups.map((g) => {
-        const isSoccerStyle = g.rows.some((r) => r.points !== '')
         return (
           <div key={g.groupName} className="standings-group">
             <div className="standings-group-title">{g.groupName}</div>

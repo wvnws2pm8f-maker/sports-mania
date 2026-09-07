@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { getStandings, getScoreboard } from '../services/espn.js'
+import { getStandings, getScoreboard, getDataUpdatedAt, invalidate } from '../services/espn.js'
 import StandingsTable from './StandingsTable.jsx'
 import GameList from './GameList.jsx'
 import ArticleList from './ArticleList.jsx'
@@ -15,29 +15,34 @@ export default function SportPanel({ sportPath, leaguePath, articles }) {
   const [error, setError] = useState(null)
   const [updatedAt, setUpdatedAt] = useState(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [s, g] = await Promise.all([
-        getStandings(sportPath, leaguePath),
-        getScoreboard(sportPath, leaguePath)
-      ])
-      setStandings(s)
-      setGames(g)
-      setUpdatedAt(new Date())
-    } catch (err) {
-      console.warn('[SportPanel] load failed', err)
-      setError('データを取得できませんでした。電波状況を確認して、もう一度お試しください。')
-    } finally {
-      setLoading(false)
-    }
-  }, [sportPath, leaguePath])
+  const load = useCallback(
+    async (forceRefresh) => {
+      setLoading(true)
+      setError(null)
+      if (forceRefresh) invalidate(sportPath, leaguePath)
+      try {
+        const [s, g, u] = await Promise.all([
+          getStandings(sportPath, leaguePath),
+          getScoreboard(sportPath, leaguePath),
+          getDataUpdatedAt(sportPath, leaguePath)
+        ])
+        setStandings(s)
+        setGames(g)
+        setUpdatedAt(u)
+      } catch (err) {
+        console.warn('[SportPanel] load failed', err)
+        setError('データを取得できませんでした。電波状況を確認して、もう一度お試しください。')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [sportPath, leaguePath]
+  )
 
   useEffect(() => {
     setStandings(null)
     setGames(null)
-    load()
+    load(false)
   }, [load])
 
   return (
@@ -54,7 +59,7 @@ export default function SportPanel({ sportPath, leaguePath, articles }) {
           </button>
         ))}
         {subTab !== '読み物' && (
-          <button type="button" className="refresh-button" onClick={load} disabled={loading}>
+          <button type="button" className="refresh-button" onClick={() => load(true)} disabled={loading}>
             {loading ? '更新中…' : '↻ 更新'}
           </button>
         )}
@@ -62,13 +67,13 @@ export default function SportPanel({ sportPath, leaguePath, articles }) {
 
       {subTab !== '読み物' && updatedAt && (
         <div className="updated-at">
-          最終更新 {updatedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+          データ更新 {updatedAt.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </div>
       )}
 
       {error && <p className="error-text">{error}</p>}
 
-      {subTab === '順位表' && !error && (loading && !standings ? <p className="muted">よみこみちゅう…</p> : <StandingsTable groups={standings} />)}
+      {subTab === '順位表' && !error && (loading && !standings ? <p className="muted">よみこみちゅう…</p> : <StandingsTable groups={standings} variant={sportPath === 'soccer' ? 'soccer' : 'us'} />)}
       {subTab === '試合' && !error && (loading && !games ? <p className="muted">よみこみちゅう…</p> : <GameList games={games} />)}
       {subTab === '読み物' && <ArticleList articles={articles} />}
     </div>
