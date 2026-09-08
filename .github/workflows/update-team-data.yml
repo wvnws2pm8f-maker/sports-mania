@@ -1,0 +1,40 @@
+name: Update Team Rosters
+
+# チームのロスター(選手一覧)は試合速報ほど頻繁には変わらないので、
+# 15分おきのupdate-data.ymlとは分けて1日1回だけ更新する。
+on:
+  schedule:
+    - cron: '0 3 * * *' # 毎日UTC 3:00(JST 12:00)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-team-data
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch team rosters
+        run: node scripts/fetch-team-details.mjs
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "sports-mania-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add public/data/team
+          if git diff --cached --quiet; then
+            echo "変更なし。スキップします。"
+          else
+            git commit -m "chore(data): update team rosters"
+            git push
+          fi

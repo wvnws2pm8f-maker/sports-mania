@@ -3,7 +3,7 @@
 // (以前はrowsの中身から推測していたが、ESPNのNBA順位表にもたまたま
 //  "points"という名前の統計(得失点差寄りの値)が入っていて誤判定していたため、
 //  呼び出し側から明示的に渡す方式にした)
-export default function StandingsTable({ groups, variant = 'us' }) {
+export default function StandingsTable({ groups, variant = 'us', onSelectTeam }) {
   if (!groups || groups.length === 0) {
     return <p className="muted">順位表を取得できませんでした</p>
   }
@@ -46,8 +46,15 @@ export default function StandingsTable({ groups, variant = 'us' }) {
                   <tr key={r.id || i}>
                     <td className="col-rank">{r.rank || i + 1}</td>
                     <td className="col-team">
-                      {r.logo && <img className="team-logo" src={r.logo} alt="" />}
-                      <span>{r.team}</span>
+                      <button
+                        type="button"
+                        className="team-cell-button"
+                        onClick={() => onSelectTeam && onSelectTeam(r)}
+                        disabled={!onSelectTeam}
+                      >
+                        {r.logo && <img className="team-logo" src={r.logo} alt="" />}
+                        <span>{r.team}</span>
+                      </button>
                     </td>
                     {isSoccerStyle ? (
                       <>

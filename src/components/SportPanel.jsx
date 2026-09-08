@@ -3,6 +3,7 @@ import { getStandings, getScoreboard, getDataUpdatedAt, invalidate } from '../se
 import StandingsTable from './StandingsTable.jsx'
 import GameList from './GameList.jsx'
 import ArticleList from './ArticleList.jsx'
+import TeamDetail from './TeamDetail.jsx'
 
 const SUB_TABS = ['順位表', '試合', '読み物']
 
@@ -14,6 +15,7 @@ export default function SportPanel({ sportPath, leaguePath, articles }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [updatedAt, setUpdatedAt] = useState(null)
+  const [selectedTeam, setSelectedTeam] = useState(null)
 
   const load = useCallback(
     async (forceRefresh) => {
@@ -42,8 +44,23 @@ export default function SportPanel({ sportPath, leaguePath, articles }) {
   useEffect(() => {
     setStandings(null)
     setGames(null)
+    setSelectedTeam(null)
     load(false)
   }, [load])
+
+  if (selectedTeam) {
+    return (
+      <div className="sport-panel">
+        <TeamDetail
+          sportPath={sportPath}
+          teamId={selectedTeam.id}
+          standingsRow={selectedTeam}
+          games={games}
+          onBack={() => setSelectedTeam(null)}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="sport-panel">
@@ -73,7 +90,7 @@ export default function SportPanel({ sportPath, leaguePath, articles }) {
 
       {error && <p className="error-text">{error}</p>}
 
-      {subTab === '順位表' && !error && (loading && !standings ? <p className="muted">よみこみちゅう…</p> : <StandingsTable groups={standings} variant={sportPath === 'soccer' ? 'soccer' : 'us'} />)}
+      {subTab === '順位表' && !error && (loading && !standings ? <p className="muted">よみこみちゅう…</p> : <StandingsTable groups={standings} variant={sportPath === 'soccer' ? 'soccer' : 'us'} onSelectTeam={setSelectedTeam} />)}
       {subTab === '試合' && !error && (loading && !games ? <p className="muted">よみこみちゅう…</p> : <GameList games={games} />)}
       {subTab === '読み物' && <ArticleList articles={articles} />}
     </div>

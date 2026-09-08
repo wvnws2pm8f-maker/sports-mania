@@ -4,20 +4,9 @@
 // 結果のJSONをリポジトリにコミットする方式に変更した。
 // アプリはビルド後にこの public/data/*.json を fetch する。
 import { writeFileSync, mkdirSync } from 'node:fs'
+import { TARGETS } from './leagues.mjs'
 
 const BASE = 'https://site.api.espn.com/apis'
-
-// [sportPath, leaguePath] の組み合わせ。src/components/*View.jsx が使っているものと一致させること。
-const TARGETS = [
-  ['soccer', 'eng.1'],
-  ['soccer', 'esp.1'],
-  ['soccer', 'ita.1'],
-  ['soccer', 'ger.1'],
-  ['soccer', 'fra.1'],
-  ['soccer', 'uefa.champions'],
-  ['basketball', 'nba'],
-  ['baseball', 'mlb']
-]
 
 function fmtDate(d) {
   const y = d.getFullYear()
@@ -93,11 +82,13 @@ function normalizeEvent(ev) {
     isFinal: Boolean(statusType.completed),
     venue: comp?.venue?.fullName || '',
     home: {
+      id: home?.team?.id || '',
       team: home?.team?.displayName || '',
       score: home?.score ?? '',
       logo: home?.team?.logo || ''
     },
     away: {
+      id: away?.team?.id || '',
       team: away?.team?.displayName || '',
       score: away?.score ?? '',
       logo: away?.team?.logo || ''

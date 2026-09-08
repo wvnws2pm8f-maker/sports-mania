@@ -49,3 +49,26 @@ export async function getDataUpdatedAt(sportPath, leaguePath) {
 export function invalidate(sportPath, leaguePath) {
   dataCache.delete(`${sportPath}-${leaguePath}`)
 }
+
+// チーム詳細(ロスター等)。public/data/team/<sportPath>-<teamId>.json を読む。
+// ロスターは1日1回更新(scripts/fetch-team-details.mjs)なので、標準のfetchキャッシュのままでよい。
+const teamCache = new Map()
+
+export async function getTeamDetail(sportPath, teamId) {
+  const key = `${sportPath}-${teamId}`
+  if (!teamCache.has(key)) {
+    const base = import.meta.env.BASE_URL || '/'
+    const url = `${base}data/team/${key}.json`.replace(/\/{2,}/g, '/').replace(':/', '://')
+    const promise = fetch(url)
+      .then((res) => {
+        if (!res.ok) throw new Error(`team data fetch error ${res.status}`)
+        return res.json()
+      })
+      .catch((err) => {
+        teamCache.delete(key)
+        throw err
+      })
+    teamCache.set(key, promise)
+  }
+  return teamCache.get(key)
+}
