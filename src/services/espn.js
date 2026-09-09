@@ -50,6 +50,25 @@ export function invalidate(sportPath, leaguePath) {
   dataCache.delete(`${sportPath}-${leaguePath}`)
 }
 
+// ホーム画面の「注目ニュース」。public/data/news.json を読む。
+let newsPromise = null
+export function getNews() {
+  if (!newsPromise) {
+    const base = import.meta.env.BASE_URL || '/'
+    const url = `${base}data/news.json`.replace(/\/{2,}/g, '/').replace(':/', '://')
+    newsPromise = fetch(url, { cache: 'no-store' })
+      .then((res) => {
+        if (!res.ok) throw new Error(`news fetch error ${res.status}`)
+        return res.json()
+      })
+      .catch((err) => {
+        newsPromise = null
+        throw err
+      })
+  }
+  return newsPromise
+}
+
 // チーム詳細(ロスター等)。public/data/team/<sportPath>-<teamId>.json を読む。
 // ロスターは1日1回更新(scripts/fetch-team-details.mjs)なので、標準のfetchキャッシュのままでよい。
 const teamCache = new Map()

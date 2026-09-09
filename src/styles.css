@@ -475,3 +475,145 @@ img {
   display: flex;
   gap: 6px;
 }
+
+/* ---------- home view ---------- */
+.home-section {
+  margin-bottom: 24px;
+}
+
+.home-section-title {
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0 0 10px;
+}
+
+.notable-games-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.notable-game-card {
+  flex: 0 0 auto;
+  min-width: 220px;
+  background: #10192c;
+  border: 1px solid #263354;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.notable-game-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #4ee1a0;
+  margin-bottom: 4px;
+}
+
+.notable-game-date {
+  font-size: 12px;
+  color: #6c7a99;
+  margin-bottom: 8px;
+}
+
+.notable-game-teams {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  flex-wrap: wrap;
+}
+
+.notable-game-vs {
+  color: #6c7a99;
+  font-weight: 400;
+  margin: 0 2px;
+}
+
+.streak-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.streak-chip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #16231b;
+  border: 1px solid #234a34;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.streak-chip-team {
+  font-weight: 700;
+}
+
+.streak-chip-count {
+  color: #4ee1a0;
+  font-weight: 800;
+}
+
+.streak-chip-league {
+  color: #6c7a99;
+  font-size: 11px;
+}
+
+.news-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.news-card {
+  display: flex;
+  gap: 12px;
+  background: #10192c;
+  border: 1px solid #1c2740;
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  padding: 10px;
+}
+
+.news-card-image {
+  width: 96px;
+  height: 96px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.news-card-body {
+  min-width: 0;
+}
+
+.news-card-headline {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.news-card-desc {
+  font-size: 12.5px;
+  color: #a9b6d6;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-card-time {
+  font-size: 11px;
+  color: #6c7a99;
+  margin-top: 6px;
+}

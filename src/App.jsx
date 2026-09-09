@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { sports } from './data/leagues.js'
+import HomeView from './components/HomeView.jsx'
 import SoccerView from './components/SoccerView.jsx'
 import NBAView from './components/NBAView.jsx'
 import MLBView from './components/MLBView.jsx'
 import BoxingView from './components/BoxingView.jsx'
 
 const VIEWS = {
+  home: HomeView,
   soccer: SoccerView,
   nba: NBAView,
   mlb: MLBView,
@@ -13,7 +15,7 @@ const VIEWS = {
 }
 
 export default function App() {
-  const [sport, setSport] = useState('soccer')
+  const [sport, setSport] = useState('home')
   const ActiveView = VIEWS[sport]
 
   return (

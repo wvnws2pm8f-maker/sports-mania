@@ -29,6 +29,9 @@ jobs:
       - name: Fetch ESPN data
         run: node scripts/fetch-espn-data.mjs
 
+      - name: Fetch news (for home screen)
+        run: node scripts/fetch-news.mjs
+
       - name: Commit and push if changed
         run: |
           git config user.name "sports-mania-bot"

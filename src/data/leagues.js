@@ -10,8 +10,17 @@ export const soccerLeagues = [
 ]
 
 export const sports = [
+  { id: 'home', name: 'ホーム', emoji: '🏠' },
   { id: 'soccer', name: 'サッカー', emoji: '⚽' },
   { id: 'nba', name: 'NBA', emoji: '🏀' },
   { id: 'mlb', name: 'MLB', emoji: '⚾' },
   { id: 'boxing', name: 'ボクシング', emoji: '🥊' }
+]
+
+// ホーム画面(注目カード・好調チーム検出)が全リーグを横断してスキャンするための一覧。
+// SportPanelの各Viewが使うsportPath/leaguePathと一致させること。
+export const allLeagueTargets = [
+  ...soccerLeagues.map((l) => ({ sportPath: 'soccer', leaguePath: l.id, leagueName: l.name })),
+  { sportPath: 'basketball', leaguePath: 'nba', leagueName: 'NBA' },
+  { sportPath: 'baseball', leaguePath: 'mlb', leagueName: 'MLB' }
 ]
