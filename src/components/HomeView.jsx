@@ -229,20 +229,23 @@ export default function HomeView() {
           {hotTeams && hotTeams.length > 0 && (
             <>
               <div className="home-subsection-title">直近{hotTeams[0].played}試合の勝率が高いチーム</div>
-              <div className="streak-row">
+              <div className="hot-teams-row">
                 {hotTeams.map((t, i) => (
                   <button
                     type="button"
                     key={i}
-                    className="streak-chip"
+                    className="hot-team-card"
                     onClick={() => openTeam(t.sportPath, t.leaguePath, t.teamId)}
                   >
-                    {t.logo && <img className="team-logo" src={t.logo} alt="" />}
-                    <span className="streak-chip-team">{t.team}</span>
-                    <span className="streak-chip-count">
-                      {t.wins}勝{t.losses}敗
-                    </span>
-                    <span className="streak-chip-league">{t.leagueName}</span>
+                    <div className="hot-team-card-top">
+                      {t.logo && <img className="team-logo" src={t.logo} alt="" />}
+                      <span className="streak-chip-team">{t.team}</span>
+                      <span className="streak-chip-count">
+                        {t.wins}勝{t.losses}敗
+                      </span>
+                      <span className="streak-chip-league">{t.leagueName}</span>
+                    </div>
+                    {t.commentary && <div className="hot-team-card-commentary">{t.commentary}</div>}
                   </button>
                 ))}
               </div>
@@ -275,8 +278,8 @@ export default function HomeView() {
               <a key={a.id} className="news-card" href={a.link} target="_blank" rel="noreferrer">
                 {a.image && <img className="news-card-image" src={a.image} alt="" />}
                 <div className="news-card-body">
-                  <div className="news-card-headline">{a.headline}</div>
-                  <div className="news-card-desc">{a.description}</div>
+                  <div className="news-card-headline">{a.headlineJa || a.headline}</div>
+                  <div className="news-card-desc">{a.descriptionJa || a.description}</div>
                   <div className="news-card-time">{timeAgo(a.published)}</div>
                 </div>
               </a>

@@ -1,9 +1,11 @@
 // ホーム画面の「注目ニュース」用データ取得スクリプト。
 // ESPNは順位表・試合結果だけでなく、実際の編集記事(見出し・要約・写真)も公開している。
 // これを使うことで「結果の寄せ集め」ではなく「今スポーツ界で何が起きているか」を伝えられる。
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { callGemini, parseGeminiJson, hasGeminiKey } from './gemini.mjs'
 
 const BASE = 'https://site.api.espn.com/apis/site/v2/sports'
+const NEWS_JSON_PATH = new URL('../public/data/news.json', import.meta.url)
 
 // ニュースは(順位表と違って)リーグ横断のエンドポイントが無いので、
 // リーグごとに取得して sportPath 単位でまとめる(サッカーは複数リーグを統合・重複除去)。
@@ -32,6 +34,57 @@ function normalizeArticle(sport, a) {
 async function fetchNewsFor(sportPath, leaguePath) {
   const data = await fetchJson(`${BASE}/${sportPath}/${leaguePath}/news`)
   return (data.articles || []).map((a) => normalizeArticle(sportPath, a))
+}
+
+// 英語の見出し・要約を日本語に翻訳する。GEMINI_API_KEYが無ければ何もしない
+// (=翻訳無しの英語表示のまま、アプリ側は既にそれに対応済み)。
+// 同じ記事を15分おきに毎回翻訳し直すのは無駄なので、前回の結果(news.json)に
+// 同じidかつ同じ見出しの翻訳があればそれを使い回す。
+function loadPreviousTranslations() {
+  if (!existsSync(NEWS_JSON_PATH)) return new Map()
+  try {
+    const prev = JSON.parse(readFileSync(NEWS_JSON_PATH, 'utf8'))
+    const map = new Map()
+    for (const a of prev.articles || []) {
+      if (a.headlineJa) map.set(a.id, { headline: a.headline, headlineJa: a.headlineJa, descriptionJa: a.descriptionJa })
+    }
+    return map
+  } catch {
+    return new Map()
+  }
+}
+
+async function translateArticle(headline, description) {
+  const prompt = `以下は英語のスポーツニュースの見出しと要約です。自然な日本語に翻訳してください。
+出力は次のJSON形式のみとし、他の説明・前置き・コードブロック記号は一切付けないでください。
+{"headline": "翻訳した見出し", "description": "翻訳した要約"}
+
+見出し: ${headline}
+要約: ${description}`
+  const text = await callGemini(prompt)
+  const parsed = parseGeminiJson(text)
+  if (!parsed?.headline) return null
+  return parsed
+}
+
+async function translateArticles(articles) {
+  if (!hasGeminiKey()) return articles
+  const cache = loadPreviousTranslations()
+  const result = []
+  for (const a of articles) {
+    const cached = cache.get(a.id)
+    if (cached && cached.headline === a.headline) {
+      result.push({ ...a, headlineJa: cached.headlineJa, descriptionJa: cached.descriptionJa })
+      continue
+    }
+    const translated = await translateArticle(a.headline, a.description)
+    if (translated) {
+      result.push({ ...a, headlineJa: translated.headline, descriptionJa: translated.description || '' })
+    } else {
+      result.push(a) // 翻訳失敗時は原文のまま(アプリ側がheadlineJa未設定なら原文を表示する)
+    }
+  }
+  return result
 }
 
 async function main() {
@@ -77,9 +130,17 @@ async function main() {
     throw new Error('ニュース記事が1件も取得できませんでした')
   }
 
-  const output = { articles: all, updatedAt: new Date().toISOString() }
-  writeFileSync(new URL('../public/data/news.json', import.meta.url), JSON.stringify(output))
-  console.log(`done. total articles=${all.length}`)
+  const translated = await translateArticles(all)
+  if (hasGeminiKey()) {
+    const newlyTranslated = translated.filter((a) => a.headlineJa).length
+    console.log(`translation: ${newlyTranslated}/${translated.length} articles have 日本語`)
+  } else {
+    console.log('GEMINI_API_KEY未設定のため翻訳はスキップ(英語のまま表示されます)')
+  }
+
+  const output = { articles: translated, updatedAt: new Date().toISOString() }
+  writeFileSync(NEWS_JSON_PATH, JSON.stringify(output))
+  console.log(`done. total articles=${translated.length}`)
 }
 
 main()

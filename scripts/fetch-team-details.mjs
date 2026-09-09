@@ -15,6 +15,7 @@
 // (15分おきのスコア取得とは別に)1日1回程度の実行を想定している。
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { TARGETS, LEAGUE_NAMES } from './leagues.mjs'
+import { callGemini, hasGeminiKey } from './gemini.mjs'
 
 const BASE = 'https://site.api.espn.com/apis/site/v2'
 const CONCURRENCY = 5
@@ -205,6 +206,25 @@ async function main() {
     .filter((c) => c.winRate >= 0.7)
     .sort((a, b) => b.winRate - a.winRate || b.wins - a.wins)
     .slice(0, 10)
+
+  // 好調ぶりを一言で伝えるキャッチコピーをAIに書いてもらう(GEMINI_API_KEY未設定ならスキップ)。
+  // 個々の選手の活躍などは正確なデータが無く誤情報になりかねないため、
+  // ここでは「実際に持っているデータ(勝敗数)」だけを根拠にするようプロンプトで縛っている。
+  if (hasGeminiKey()) {
+    for (const t of hotTeams) {
+      const prompt = `${t.team}は${t.leagueName}で、直近${t.played}試合中${t.wins}勝${t.losses}敗と好調です。
+ファンに向けて、この好調ぶりを一言で伝える日本語のキャッチコピーを1つ作ってください。
+条件:
+- 20〜40文字程度
+- 誇張しすぎず、この勝敗数という事実に基づいた表現にする
+- 選手名や具体的なプレー内容など、示していない情報は書かない
+- 出力はキャッチコピーの文章のみ。前置き・引用符・説明は不要`
+      const text = await callGemini(prompt)
+      if (text) t.commentary = text.replace(/^["「]|["」]$/g, '').trim()
+    }
+    console.log(`commentary: ${hotTeams.filter((t) => t.commentary).length}/${hotTeams.length}`)
+  }
+
   writeFileSync(
     new URL('../public/data/hot-teams.json', import.meta.url),
     JSON.stringify({ teams: hotTeams, updatedAt: new Date().toISOString() })

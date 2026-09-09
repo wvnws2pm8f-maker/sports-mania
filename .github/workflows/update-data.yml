@@ -31,6 +31,8 @@ jobs:
 
       - name: Fetch news (for home screen)
         run: node scripts/fetch-news.mjs
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # 未設定でも動く(翻訳なしの英語表示になるだけ)
 
       - name: Commit and push if changed
         run: |

@@ -561,6 +561,43 @@ img {
   margin: 4px 0 6px;
 }
 
+.hot-teams-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.hot-team-card {
+  flex: 0 0 auto;
+  min-width: 220px;
+  max-width: 260px;
+  text-align: left;
+  background: #16231b;
+  border: 1px solid #234a34;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.hot-team-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  white-space: nowrap;
+}
+
+.hot-team-card-commentary {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: #c7d0e6;
+  line-height: 1.5;
+  white-space: normal;
+}
+
 .streak-chip-team {
   font-weight: 700;
 }
