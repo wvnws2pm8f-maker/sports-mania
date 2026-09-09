@@ -69,6 +69,27 @@ export function getNews() {
   return newsPromise
 }
 
+// ホーム画面の「調子の良いチーム」。public/data/hot-teams.json を読む。
+// (直近10試合の勝率をscripts/fetch-team-details.mjsが1日1回計算する。現在の連勝数だけでは
+//  連勝が途切れた直後の好調なチームを見逃すため、こちらは「直近◯試合で◯勝」の観点で拾う)
+let hotTeamsPromise = null
+export function getHotTeams() {
+  if (!hotTeamsPromise) {
+    const base = import.meta.env.BASE_URL || '/'
+    const url = `${base}data/hot-teams.json`.replace(/\/{2,}/g, '/').replace(':/', '://')
+    hotTeamsPromise = fetch(url, { cache: 'no-store' })
+      .then((res) => {
+        if (!res.ok) throw new Error(`hot-teams fetch error ${res.status}`)
+        return res.json()
+      })
+      .catch((err) => {
+        hotTeamsPromise = null
+        throw err
+      })
+  }
+  return hotTeamsPromise
+}
+
 // チーム詳細(ロスター等)。public/data/team/<sportPath>-<teamId>.json を読む。
 // ロスターは1日1回更新(scripts/fetch-team-details.mjs)なので、標準のfetchキャッシュのままでよい。
 const teamCache = new Map()

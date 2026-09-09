@@ -14,7 +14,7 @@
 // ロスターは試合ほど頻繁には変わらないため、このスクリプトは
 // (15分おきのスコア取得とは別に)1日1回程度の実行を想定している。
 import { writeFileSync, mkdirSync } from 'node:fs'
-import { TARGETS } from './leagues.mjs'
+import { TARGETS, LEAGUE_NAMES } from './leagues.mjs'
 
 const BASE = 'https://site.api.espn.com/apis/site/v2'
 const CONCURRENCY = 5
@@ -64,8 +64,49 @@ function flattenAthletes(sportPath, athletesField) {
   return athletesField.map((a) => normalizeAthlete(sportPath, a))
 }
 
+// 直近の試合結果から「調子」を計算する(現在の連勝数だけでは、連勝が最近途切れた
+// 好調なチームを見逃してしまうため)。最大10試合、消化試合数がそれより少なければ
+// その分だけで計算する(シーズン序盤はサッカーが3〜4試合しか無いこともある)。
+const RECENT_FORM_GAMES = 10
+
+async function fetchRecentForm(sportPath, leaguePath, teamId) {
+  const data = await fetchJson(`${BASE}/sports/${sportPath}/${leaguePath}/teams/${teamId}/schedule`)
+  const finished = (data.events || [])
+    .filter((e) => e.competitions?.[0]?.status?.type?.completed)
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, RECENT_FORM_GAMES)
+
+  let wins = 0
+  let losses = 0
+  let ties = 0
+  const results = []
+  for (const e of finished) {
+    const competitors = e.competitions[0].competitors || []
+    const self = competitors.find((c) => c.id === teamId)
+    const opponent = competitors.find((c) => c.id !== teamId)
+    if (!self) continue
+    if (self.winner === true) {
+      wins++
+      results.push('W')
+    } else if (opponent?.winner === true) {
+      losses++
+      results.push('L')
+    } else {
+      ties++
+      results.push('T')
+    }
+  }
+  return { wins, losses, ties, played: finished.length, resultsRecent: results.reverse() } // 古い→新しい順
+}
+
 async function fetchTeamDetail(sportPath, leaguePath, teamMeta) {
-  const rosterData = await fetchJson(`${BASE}/sports/${sportPath}/${leaguePath}/teams/${teamMeta.id}/roster`)
+  const [rosterData, recentForm] = await Promise.all([
+    fetchJson(`${BASE}/sports/${sportPath}/${leaguePath}/teams/${teamMeta.id}/roster`),
+    fetchRecentForm(sportPath, leaguePath, teamMeta.id).catch((err) => {
+      console.error(`FAILED recent form: ${sportPath}/${teamMeta.id}: ${err.message}`)
+      return null
+    })
+  ])
   return {
     team: {
       id: teamMeta.id,
@@ -75,6 +116,7 @@ async function fetchTeamDetail(sportPath, leaguePath, teamMeta) {
       color: teamMeta.color || ''
     },
     roster: flattenAthletes(sportPath, rosterData.athletes),
+    recentForm,
     updatedAt: new Date().toISOString()
   }
 }
@@ -123,6 +165,7 @@ async function main() {
 
   let totalOk = 0
   let totalFail = 0
+  const hotCandidates = []
 
   for (const [sportPath, teamMap] of bySport) {
     const entries = [...teamMap.entries()]
@@ -130,6 +173,22 @@ async function main() {
     const results = await runPool(entries, CONCURRENCY, async ([teamId, { leaguePath, teamMeta }]) => {
       const detail = await fetchTeamDetail(sportPath, leaguePath, teamMeta)
       writeFileSync(new URL(`../public/data/team/${sportPath}-${teamId}.json`, import.meta.url), JSON.stringify(detail))
+      const f = detail.recentForm
+      if (f && f.played >= 5) {
+        hotCandidates.push({
+          sportPath,
+          teamId,
+          leaguePath,
+          leagueName: LEAGUE_NAMES[leaguePath] || leaguePath,
+          team: detail.team.name,
+          logo: detail.team.logo,
+          wins: f.wins,
+          losses: f.losses,
+          ties: f.ties,
+          played: f.played,
+          winRate: f.wins / f.played
+        })
+      }
       return teamId
     })
     for (const r of results) {
@@ -140,6 +199,17 @@ async function main() {
       }
     }
   }
+
+  // 「調子の良いチーム」= 直近5試合以上消化していて、勝率7割以上
+  const hotTeams = hotCandidates
+    .filter((c) => c.winRate >= 0.7)
+    .sort((a, b) => b.winRate - a.winRate || b.wins - a.wins)
+    .slice(0, 10)
+  writeFileSync(
+    new URL('../public/data/hot-teams.json', import.meta.url),
+    JSON.stringify({ teams: hotTeams, updatedAt: new Date().toISOString() })
+  )
+  console.log(`hot teams: ${hotTeams.length}`)
 
   console.log(`done. ok=${totalOk} fail=${totalFail}`)
   if (totalOk === 0) {

@@ -10,3 +10,15 @@ export const TARGETS = [
   ['basketball', 'nba'],
   ['baseball', 'mlb']
 ]
+
+// 表示用のリーグ名(hot-teams.json等、リーグ横断の一覧に使う)。src/data/leagues.jsと一致させること。
+export const LEAGUE_NAMES = {
+  'eng.1': 'プレミアリーグ',
+  'esp.1': 'ラ・リーガ',
+  'ita.1': 'セリエA',
+  'ger.1': 'ブンデスリーガ',
+  'fra.1': 'リーグ・アン',
+  'uefa.champions': 'チャンピオンズリーグ',
+  nba: 'NBA',
+  mlb: 'MLB'
+}

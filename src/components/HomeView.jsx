@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { getNews, getStandings, getScoreboard } from '../services/espn.js'
+import { getNews, getStandings, getScoreboard, getHotTeams } from '../services/espn.js'
 import { allLeagueTargets } from '../data/leagues.js'
 import { rivalries } from '../data/rivalries.js'
 import boxingData from '../data/boxingSchedule.json'
+import TeamDetail from './TeamDetail.jsx'
 
 function formatDate(iso) {
   const d = new Date(iso)
@@ -36,8 +37,11 @@ function extractWinStreak(sportPath, row) {
 export default function HomeView() {
   const [news, setNews] = useState(null)
   const [streaks, setStreaks] = useState(null)
+  const [hotTeams, setHotTeams] = useState(null)
   const [notableGames, setNotableGames] = useState(null)
+  const [leaguesData, setLeaguesData] = useState(null)
   const [error, setError] = useState(null)
+  const [selectedTeam, setSelectedTeam] = useState(null) // { sportPath, leaguePath, teamId }
 
   useEffect(() => {
     let cancelled = false
@@ -49,6 +53,10 @@ export default function HomeView() {
         if (!cancelled) setError((e) => e || 'ニュースを取得できませんでした')
       })
 
+    getHotTeams()
+      .then((d) => !cancelled && setHotTeams(d.teams))
+      .catch((err) => console.warn('[HomeView] hot teams load failed', err)) // 無くても致命的ではないので黙って諦める
+
     Promise.all(
       allLeagueTargets.map(async (t) => {
         const [standings, games] = await Promise.all([getStandings(t.sportPath, t.leaguePath), getScoreboard(t.sportPath, t.leaguePath)])
@@ -57,6 +65,7 @@ export default function HomeView() {
     )
       .then((leagues) => {
         if (cancelled) return
+        setLeaguesData(leagues)
 
         // 好調なチーム(3連勝以上)を抽出
         const foundStreaks = []
@@ -65,7 +74,15 @@ export default function HomeView() {
             for (const r of g.rows) {
               const streak = extractWinStreak(l.sportPath, r)
               if (streak >= 3) {
-                foundStreaks.push({ team: r.team, logo: r.logo, streak, leagueName: l.leagueName })
+                foundStreaks.push({
+                  sportPath: l.sportPath,
+                  leaguePath: l.leaguePath,
+                  teamId: r.id,
+                  team: r.team,
+                  logo: r.logo,
+                  streak,
+                  leagueName: l.leagueName
+                })
               }
             }
           }
@@ -98,17 +115,23 @@ export default function HomeView() {
                 ((r.teamIds[0] === rivalryMatch.home.id && r.teamIds[1] === rivalryMatch.away.id) ||
                   (r.teamIds[1] === rivalryMatch.home.id && r.teamIds[0] === rivalryMatch.away.id))
             )
-            found.push({ ...rivalryMatch, leagueName: l.leagueName, label: rivalry?.label || '注目カード' })
+            found.push({
+              ...rivalryMatch,
+              sportPath: l.sportPath,
+              leaguePath: l.leaguePath,
+              leagueName: l.leagueName,
+              label: rivalry?.label || '注目カード'
+            })
             continue
           }
 
           // 首位同士の対戦(グループの先頭2チーム)
           const topIds = (l.standings?.[0]?.rows || []).slice(0, 2).map((r) => r.id)
           if (topIds.length === 2) {
-            const topClash = upcoming.find(
-              (g) => topIds.includes(g.home.id) && topIds.includes(g.away.id)
-            )
-            if (topClash) found.push({ ...topClash, leagueName: l.leagueName, label: '首位対決' })
+            const topClash = upcoming.find((g) => topIds.includes(g.home.id) && topIds.includes(g.away.id))
+            if (topClash) {
+              found.push({ ...topClash, sportPath: l.sportPath, leaguePath: l.leaguePath, leagueName: l.leagueName, label: '首位対決' })
+            }
           }
         }
         found.sort((a, b) => new Date(a.date) - new Date(b.date))
@@ -123,6 +146,26 @@ export default function HomeView() {
       cancelled = true
     }
   }, [])
+
+  function openTeam(sportPath, leaguePath, teamId) {
+    setSelectedTeam({ sportPath, leaguePath, teamId })
+  }
+
+  if (selectedTeam) {
+    const league = leaguesData?.find((l) => l.sportPath === selectedTeam.sportPath && l.leaguePath === selectedTeam.leaguePath)
+    const standingsRow = league?.standings?.flatMap((g) => g.rows).find((r) => r.id === selectedTeam.teamId)
+    return (
+      <div className="home-view">
+        <TeamDetail
+          sportPath={selectedTeam.sportPath}
+          teamId={selectedTeam.teamId}
+          standingsRow={standingsRow}
+          games={league?.games}
+          onBack={() => setSelectedTeam(null)}
+        />
+      </div>
+    )
+  }
 
   const today = new Date().toISOString().slice(0, 10)
   const upcomingFights = (boxingData.fights || []).filter((f) => f.date >= today).slice(0, 2)
@@ -142,11 +185,15 @@ export default function HomeView() {
                 </div>
                 <div className="notable-game-date">{formatDate(g.date)}</div>
                 <div className="notable-game-teams">
-                  {g.home.logo && <img className="team-logo" src={g.home.logo} alt="" />}
-                  <span>{g.home.team}</span>
+                  <button type="button" className="team-cell-button" onClick={() => openTeam(g.sportPath, g.leaguePath, g.home.id)}>
+                    {g.home.logo && <img className="team-logo" src={g.home.logo} alt="" />}
+                    <span>{g.home.team}</span>
+                  </button>
                   <span className="notable-game-vs">vs</span>
-                  {g.away.logo && <img className="team-logo" src={g.away.logo} alt="" />}
-                  <span>{g.away.team}</span>
+                  <button type="button" className="team-cell-button" onClick={() => openTeam(g.sportPath, g.leaguePath, g.away.id)}>
+                    {g.away.logo && <img className="team-logo" src={g.away.logo} alt="" />}
+                    <span>{g.away.team}</span>
+                  </button>
                 </div>
               </div>
             ))}
@@ -154,19 +201,53 @@ export default function HomeView() {
         </section>
       )}
 
-      {streaks && streaks.length > 0 && (
+      {((streaks && streaks.length > 0) || (hotTeams && hotTeams.length > 0)) && (
         <section className="home-section">
           <h2 className="home-section-title">🔥 好調なチーム</h2>
-          <div className="streak-row">
-            {streaks.map((s, i) => (
-              <div key={i} className="streak-chip">
-                {s.logo && <img className="team-logo" src={s.logo} alt="" />}
-                <span className="streak-chip-team">{s.team}</span>
-                <span className="streak-chip-count">{s.streak}連勝</span>
-                <span className="streak-chip-league">{s.leagueName}</span>
+
+          {streaks && streaks.length > 0 && (
+            <>
+              <div className="home-subsection-title">連勝中</div>
+              <div className="streak-row">
+                {streaks.map((s, i) => (
+                  <button
+                    type="button"
+                    key={i}
+                    className="streak-chip"
+                    onClick={() => openTeam(s.sportPath, s.leaguePath, s.teamId)}
+                  >
+                    {s.logo && <img className="team-logo" src={s.logo} alt="" />}
+                    <span className="streak-chip-team">{s.team}</span>
+                    <span className="streak-chip-count">{s.streak}連勝</span>
+                    <span className="streak-chip-league">{s.leagueName}</span>
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
+
+          {hotTeams && hotTeams.length > 0 && (
+            <>
+              <div className="home-subsection-title">直近{hotTeams[0].played}試合の勝率が高いチーム</div>
+              <div className="streak-row">
+                {hotTeams.map((t, i) => (
+                  <button
+                    type="button"
+                    key={i}
+                    className="streak-chip"
+                    onClick={() => openTeam(t.sportPath, t.leaguePath, t.teamId)}
+                  >
+                    {t.logo && <img className="team-logo" src={t.logo} alt="" />}
+                    <span className="streak-chip-team">{t.team}</span>
+                    <span className="streak-chip-count">
+                      {t.wins}勝{t.losses}敗
+                    </span>
+                    <span className="streak-chip-league">{t.leagueName}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </section>
       )}
 

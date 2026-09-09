@@ -544,11 +544,21 @@ img {
   align-items: center;
   gap: 6px;
   background: #16231b;
+  color: inherit;
   border: 1px solid #234a34;
   border-radius: 999px;
   padding: 8px 14px;
+  font: inherit;
   font-size: 13px;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.home-subsection-title {
+  font-size: 12px;
+  color: #6c7a99;
+  font-weight: 700;
+  margin: 4px 0 6px;
 }
 
 .streak-chip-team {
