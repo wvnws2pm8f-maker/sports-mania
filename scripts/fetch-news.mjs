@@ -54,6 +54,10 @@ function loadPreviousTranslations() {
   }
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 async function translateArticle(headline, description) {
   const prompt = `以下は英語のスポーツニュースの見出しと要約です。自然な日本語に翻訳してください。
 出力は次のJSON形式のみとし、他の説明・前置き・コードブロック記号は一切付けないでください。
@@ -61,7 +65,9 @@ async function translateArticle(headline, description) {
 
 見出し: ${headline}
 要約: ${description}`
-  const text = await callGemini(prompt)
+  // asJson: Geminiに前置き無しの純粋なJSONだけを返させる。これが無いと、見出し=要約の
+  // 動画ハイライトのような単純な記事で説明文を付けて返すことがありJSON parseに失敗していた。
+  const text = await callGemini(prompt, { asJson: true })
   const parsed = parseGeminiJson(text)
   if (!parsed?.headline) return null
   return parsed
@@ -81,8 +87,11 @@ async function translateArticles(articles) {
     if (translated) {
       result.push({ ...a, headlineJa: translated.headline, descriptionJa: translated.description || '' })
     } else {
-      result.push(a) // 翻訳失敗時は原文のまま(アプリ側がheadlineJa未設定なら原文を表示する)
+      result.push(a) // 翻訳失敗時は原文のまま(次回実行時に再度リトライされる)
     }
+    // 無料枠のレート制限(1分あたりの回数制限)に引っかからないよう、実際にAPIを呼んだ時だけ間隔を空ける
+    // (キャッシュ済みでスキップしたものは待たない)
+    await sleep(1500)
   }
   return result
 }
