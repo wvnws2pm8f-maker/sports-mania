@@ -27,6 +27,11 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,json}'],
+        // public/data/ は15分〜1日おきに中身が変わる動的データ(試合結果・ニュース・ロスター等)。
+        // globPatternsの json にマッチして毎回ビルド時点のスナップショットとしてSWにキャッシュされて
+        // しまい、「サーバー側は更新されているのにアプリだけ古い表示のまま」になるバグの原因だった
+        // (2026-09-10発覚)。ここは常にネットワークから取りに行きたいので、precache対象から除外する。
+        globIgnores: ['data/**'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         // 試合スコアAPIは常に最新を取りに行きたいのでSWのキャッシュ対象に含めない
         navigateFallbackDenylist: [/^\/apis\//]
