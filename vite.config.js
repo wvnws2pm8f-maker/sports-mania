@@ -8,6 +8,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // 自動生成される最小限のregisterSW.js(ただregister()するだけで更新チェックが無い)は使わず、
+      // src/main.jsxでvirtual:pwa-registerのregisterSW()を自前で呼び、1分おきの更新確認+
+      // 見つかり次第の自動リロードを行う(2026-09-10、Dockアプリが更新に気づかない不具合の対策)。
+      injectRegister: false,
       includeAssets: ['icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
         name: 'マニアスタジアム',
