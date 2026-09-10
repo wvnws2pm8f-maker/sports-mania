@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
-import { getStandings, getScoreboard, getDataUpdatedAt, invalidate } from '../services/espn.js'
+import { getStandings, getScoreboard, getDataUpdatedAt, invalidate, getHotTeams } from '../services/espn.js'
+import { findStreaks } from '../utils/teamForm.js'
 import StandingsTable from './StandingsTable.jsx'
 import GameList from './GameList.jsx'
 import ArticleList from './ArticleList.jsx'
@@ -16,6 +17,7 @@ export default function SportPanel({ sportPath, leaguePath, articles }) {
   const [error, setError] = useState(null)
   const [updatedAt, setUpdatedAt] = useState(null)
   const [selectedTeam, setSelectedTeam] = useState(null)
+  const [hotTeamsAll, setHotTeamsAll] = useState(null)
 
   const load = useCallback(
     async (forceRefresh) => {
@@ -48,6 +50,22 @@ export default function SportPanel({ sportPath, leaguePath, articles }) {
     load(false)
   }, [load])
 
+  // 「好調なチーム」帯用。全スポーツ分をまとめたファイルなので一度だけ取得し、このリーグの分だけ絞り込む。
+  useEffect(() => {
+    let cancelled = false
+    getHotTeams()
+      .then((d) => !cancelled && setHotTeamsAll(d.teams))
+      .catch((err) => console.warn('[SportPanel] hot teams load failed', err))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function selectTeamById(teamId) {
+    const row = standings?.flatMap((g) => g.rows).find((r) => r.id === teamId)
+    if (row) setSelectedTeam(row)
+  }
+
   if (selectedTeam) {
     return (
       <div className="sport-panel">
@@ -61,6 +79,9 @@ export default function SportPanel({ sportPath, leaguePath, articles }) {
       </div>
     )
   }
+
+  const streaks = subTab === '順位表' ? findStreaks(sportPath, standings).slice(0, 6) : []
+  const hotTeams = subTab === '順位表' ? (hotTeamsAll || []).filter((t) => t.sportPath === sportPath && t.leaguePath === leaguePath) : []
 
   return (
     <div className="sport-panel">
@@ -89,6 +110,38 @@ export default function SportPanel({ sportPath, leaguePath, articles }) {
       )}
 
       {error && <p className="error-text">{error}</p>}
+
+      {subTab === '順位表' && !error && (streaks.length > 0 || hotTeams.length > 0) && (
+        <div className="team-form-band">
+          {streaks.length > 0 && (
+            <div className="streak-row">
+              {streaks.map((s, i) => (
+                <button type="button" key={i} className="streak-chip" onClick={() => selectTeamById(s.teamId)}>
+                  {s.logo && <img className="team-logo" src={s.logo} alt="" />}
+                  <span className="streak-chip-team">{s.team}</span>
+                  <span className="streak-chip-count">{s.streak}連勝</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {hotTeams.length > 0 && (
+            <div className="hot-teams-row">
+              {hotTeams.map((t, i) => (
+                <button type="button" key={i} className="hot-team-card" onClick={() => selectTeamById(t.teamId)}>
+                  <div className="hot-team-card-top">
+                    {t.logo && <img className="team-logo" src={t.logo} alt="" />}
+                    <span className="streak-chip-team">{t.team}</span>
+                    <span className="streak-chip-count">
+                      {t.wins}勝{t.losses}敗
+                    </span>
+                  </div>
+                  {t.commentary && <div className="hot-team-card-commentary">{t.commentary}</div>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {subTab === '順位表' && !error && (loading && !standings ? <p className="muted">よみこみちゅう…</p> : <StandingsTable groups={standings} variant={sportPath === 'soccer' ? 'soccer' : 'us'} onSelectTeam={setSelectedTeam} />)}
       {subTab === '試合' && !error && (loading && !games ? <p className="muted">よみこみちゅう…</p> : <GameList games={games} />)}

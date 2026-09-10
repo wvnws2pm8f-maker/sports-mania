@@ -145,6 +145,15 @@ img {
   margin-bottom: 10px;
 }
 
+.team-form-band {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #1c2740;
+}
+
 .muted {
   color: #6c7a99;
   font-size: 14px;
@@ -485,6 +494,43 @@ img {
   font-size: 15px;
   font-weight: 800;
   margin: 0 0 10px;
+}
+
+.digest-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.digest-tile {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: left;
+  background: #10192c;
+  border: 1px solid #263354;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.digest-tile.is-active {
+  border-color: #4ee1a0;
+}
+
+.digest-tile-title {
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.digest-tile-teaser {
+  font-size: 12px;
+  color: #a9b6d6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .notable-games-row {

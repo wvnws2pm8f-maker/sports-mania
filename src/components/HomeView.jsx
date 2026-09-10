@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getNews, getStandings, getScoreboard, getHotTeams, getSeasonMilestones } from '../services/espn.js'
+import { getNews, getStandings, getScoreboard, getSeasonMilestones } from '../services/espn.js'
 import { allLeagueTargets } from '../data/leagues.js'
 import { rivalries } from '../data/rivalries.js'
 import { mlbPlayoffFormat, nbaPlayoffFormat, boxingTitleSystem } from '../data/championshipInfo.js'
@@ -45,30 +45,16 @@ function timeAgo(iso) {
   return `${Math.round(diffHour / 24)}日前`
 }
 
-// 連勝(好調)を検出する。
-// NBA/MLBはESPNが streak(例:"W3") をそのまま返すのでそれを使う。
-// サッカーはstreak統計が無いため、「今シーズン無敗で全勝」を連勝の近似値として扱う。
-function extractWinStreak(sportPath, row) {
-  if (row.streak && /^W(\d+)$/.test(row.streak)) {
-    return parseInt(row.streak.slice(1), 10)
-  }
-  if (sportPath === 'soccer') {
-    const gp = parseInt(row.gamesPlayed, 10)
-    const wins = parseInt(row.wins, 10)
-    if (gp >= 3 && wins === gp) return gp
-  }
-  return 0
-}
-
 export default function HomeView() {
   const [news, setNews] = useState(null)
-  const [streaks, setStreaks] = useState(null)
-  const [hotTeams, setHotTeams] = useState(null)
   const [milestones, setMilestones] = useState(null)
   const [notableGames, setNotableGames] = useState(null)
   const [leaguesData, setLeaguesData] = useState(null)
   const [error, setError] = useState(null)
   const [selectedTeam, setSelectedTeam] = useState(null) // { sportPath, leaguePath, teamId }
+  // 「今週の注目カード」「チャンピオンへの道」はタイトルだけ横並びで表示し、
+  // タップしたものだけその場で詳細を展開する(両方を初めから開くとホーム画面が縦に長くなりすぎるため)。
+  const [expanded, setExpanded] = useState(null) // null | 'notable' | 'championship'
 
   useEffect(() => {
     let cancelled = false
@@ -79,10 +65,6 @@ export default function HomeView() {
         console.warn('[HomeView] news load failed', err)
         if (!cancelled) setError((e) => e || 'ニュースを取得できませんでした')
       })
-
-    getHotTeams()
-      .then((d) => !cancelled && setHotTeams(d.teams))
-      .catch((err) => console.warn('[HomeView] hot teams load failed', err)) // 無くても致命的ではないので黙って諦める
 
     getSeasonMilestones()
       .then((d) => !cancelled && setMilestones(d))
@@ -97,29 +79,6 @@ export default function HomeView() {
       .then((leagues) => {
         if (cancelled) return
         setLeaguesData(leagues)
-
-        // 好調なチーム(3連勝以上)を抽出
-        const foundStreaks = []
-        for (const l of leagues) {
-          for (const g of l.standings || []) {
-            for (const r of g.rows) {
-              const streak = extractWinStreak(l.sportPath, r)
-              if (streak >= 3) {
-                foundStreaks.push({
-                  sportPath: l.sportPath,
-                  leaguePath: l.leaguePath,
-                  teamId: r.id,
-                  team: r.team,
-                  logo: r.logo,
-                  streak,
-                  leagueName: l.leagueName
-                })
-              }
-            }
-          }
-        }
-        foundStreaks.sort((a, b) => b.streak - a.streak)
-        setStreaks(foundStreaks.slice(0, 6))
 
         // 今週末の注目カード: まずライバル対決、無ければ首位同士の対戦を拾う
         const now = Date.now()
@@ -216,13 +175,47 @@ export default function HomeView() {
   const nbaDays = nbaMilestone ? daysUntil(nbaMilestone.startDate) : null
   const nbaLabel = nbaMilestone?.type === 3 ? 'プレーオフ開幕' : nbaMilestone?.type === 2 ? 'レギュラーシーズン開幕' : null
 
+  const notableTeaser =
+    notableGames && notableGames.length > 0
+      ? `${notableGames[0].label}${notableGames.length > 1 ? ` ほか${notableGames.length - 1}件` : ''}`
+      : notableGames
+        ? '今週は注目カードなし'
+        : 'よみこみちゅう…'
+
+  const championshipTeaser =
+    milestones?.mlb?.inPostseason
+      ? 'MLBはポストシーズン開催中！'
+      : mlbDays !== null
+        ? `MLBポストシーズンまであと${mlbDays}日`
+        : milestones
+          ? ''
+          : 'よみこみちゅう…'
+
+  function toggle(section) {
+    setExpanded((prev) => (prev === section ? null : section))
+  }
+
   return (
     <div className="home-view">
       {error && <p className="error-text">{error}</p>}
 
-      {notableGames && notableGames.length > 0 && (
+      <div className="digest-row">
+        <button type="button" className={`digest-tile ${expanded === 'notable' ? 'is-active' : ''}`} onClick={() => toggle('notable')}>
+          <div className="digest-tile-title">📅 今週の注目カード</div>
+          <div className="digest-tile-teaser">{notableTeaser}</div>
+        </button>
+        <button
+          type="button"
+          className={`digest-tile ${expanded === 'championship' ? 'is-active' : ''}`}
+          onClick={() => toggle('championship')}
+        >
+          <div className="digest-tile-title">🏆 チャンピオンへの道</div>
+          <div className="digest-tile-teaser">{championshipTeaser}</div>
+        </button>
+      </div>
+
+      {expanded === 'notable' && notableGames && notableGames.length > 0 && (
         <section className="home-section">
-          <h2 className="home-section-title">📅 今週の注目カード</h2>
           <div className="notable-games-row">
             {notableGames.map((g) => (
               <div key={g.id} className="notable-game-card">
@@ -248,144 +241,91 @@ export default function HomeView() {
         </section>
       )}
 
-      <section className="home-section">
-        <h2 className="home-section-title">🏆 チャンピオンへの道</h2>
+      {expanded === 'championship' && (
+        <section className="home-section">
+          <div className="home-subsection-title">プレーオフまで</div>
+          <div className="playoff-countdown-row">
+            <div className="playoff-countdown-card">
+              <div className="playoff-countdown-sport">⚾ MLB</div>
+              {milestones?.mlb?.inPostseason ? (
+                <div className="playoff-countdown-days">ポストシーズン開催中！</div>
+              ) : mlbDays !== null ? (
+                <div className="playoff-countdown-days">
+                  ポストシーズンまで <span className="col-strong">あと{mlbDays}日</span>
+                </div>
+              ) : (
+                <div className="muted">よみこみちゅう…</div>
+              )}
+              <ul className="playoff-format-list">
+                {mlbPlayoffFormat.rounds.map((r) => (
+                  <li key={r.name}>
+                    {r.name}: {r.format}
+                  </li>
+                ))}
+              </ul>
+              <div className="playoff-format-tip">{mlbPlayoffFormat.tip}</div>
+            </div>
 
-        <div className="home-subsection-title">プレーオフまで</div>
-        <div className="playoff-countdown-row">
-          <div className="playoff-countdown-card">
-            <div className="playoff-countdown-sport">⚾ MLB</div>
-            {milestones?.mlb?.inPostseason ? (
-              <div className="playoff-countdown-days">ポストシーズン開催中！</div>
-            ) : mlbDays !== null ? (
-              <div className="playoff-countdown-days">
-                ポストシーズンまで <span className="col-strong">あと{mlbDays}日</span>
-              </div>
-            ) : (
-              <div className="muted">よみこみちゅう…</div>
-            )}
-            <ul className="playoff-format-list">
-              {mlbPlayoffFormat.rounds.map((r) => (
-                <li key={r.name}>
-                  {r.name}: {r.format}
-                </li>
-              ))}
-            </ul>
-            <div className="playoff-format-tip">{mlbPlayoffFormat.tip}</div>
+            <div className="playoff-countdown-card">
+              <div className="playoff-countdown-sport">🏀 NBA</div>
+              {nbaDays !== null ? (
+                <div className="playoff-countdown-days">
+                  {nbaLabel}まで <span className="col-strong">あと{nbaDays}日</span>
+                </div>
+              ) : (
+                <div className="muted">よみこみちゅう…</div>
+              )}
+              <ul className="playoff-format-list">
+                {nbaPlayoffFormat.rounds.map((r) => (
+                  <li key={r.name}>
+                    {r.name}: {r.format}
+                  </li>
+                ))}
+              </ul>
+              <div className="playoff-format-tip">{nbaPlayoffFormat.tip}</div>
+            </div>
           </div>
 
-          <div className="playoff-countdown-card">
-            <div className="playoff-countdown-sport">🏀 NBA</div>
-            {nbaDays !== null ? (
-              <div className="playoff-countdown-days">
-                {nbaLabel}まで <span className="col-strong">あと{nbaDays}日</span>
-              </div>
-            ) : (
-              <div className="muted">よみこみちゅう…</div>
-            )}
-            <ul className="playoff-format-list">
-              {nbaPlayoffFormat.rounds.map((r) => (
-                <li key={r.name}>
-                  {r.name}: {r.format}
-                </li>
-              ))}
-            </ul>
-            <div className="playoff-format-tip">{nbaPlayoffFormat.tip}</div>
-          </div>
-        </div>
-
-        {soccerRaces.length > 0 && (
-          <>
-            <div className="home-subsection-title">⚽ 優勝争い・残留争い</div>
-            <div className="race-row">
-              {soccerRaces.map((r) => (
-                <div key={r.leaguePath} className="race-card">
-                  <div className="race-card-league">{r.leagueName}</div>
-                  <div className="race-card-line">
-                    <span className="race-card-label">首位</span>
-                    {r.leader.logo && <img className="team-logo" src={r.leader.logo} alt="" />}
-                    <span>{r.leader.team}</span>
-                    {r.titleGap !== null && (
-                      <span className="race-card-gap">{r.titleGap === 0 ? '(2位と同勝点)' : `(2位と${r.titleGap}差)`}</span>
+          {soccerRaces.length > 0 && (
+            <>
+              <div className="home-subsection-title">⚽ 優勝争い・残留争い</div>
+              <div className="race-row">
+                {soccerRaces.map((r) => (
+                  <div key={r.leaguePath} className="race-card">
+                    <div className="race-card-league">{r.leagueName}</div>
+                    <div className="race-card-line">
+                      <span className="race-card-label">首位</span>
+                      {r.leader.logo && <img className="team-logo" src={r.leader.logo} alt="" />}
+                      <span>{r.leader.team}</span>
+                      {r.titleGap !== null && (
+                        <span className="race-card-gap">{r.titleGap === 0 ? '(2位と同勝点)' : `(2位と${r.titleGap}差)`}</span>
+                      )}
+                    </div>
+                    {r.relegationGap !== null && (
+                      <div className="race-card-line">
+                        <span className="race-card-label">残留争い</span>
+                        <span>ボーダーとの差 {r.relegationGap}pt</span>
+                      </div>
                     )}
                   </div>
-                  {r.relegationGap !== null && (
-                    <div className="race-card-line">
-                      <span className="race-card-label">残留争い</span>
-                      <span>ボーダーとの差 {r.relegationGap}pt</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {titleFights.length > 0 && (
-          <>
-            <div className="home-subsection-title">🥊 王座統一戦とは</div>
-            <div className="title-explainer-card">
-              <div>{boxingTitleSystem.explanation}</div>
-              <div className="playoff-format-tip">{boxingTitleSystem.tip}</div>
-              <div className="title-fights-list">
-                {titleFights.map((f, i) => (
-                  <div key={i} className="title-fight-row">
-                    {formatDate(f.date)} ・ {f.cardName}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-      </section>
-
-      {((streaks && streaks.length > 0) || (hotTeams && hotTeams.length > 0)) && (
-        <section className="home-section">
-          <h2 className="home-section-title">🔥 好調なチーム</h2>
-
-          {streaks && streaks.length > 0 && (
-            <>
-              <div className="home-subsection-title">連勝中</div>
-              <div className="streak-row">
-                {streaks.map((s, i) => (
-                  <button
-                    type="button"
-                    key={i}
-                    className="streak-chip"
-                    onClick={() => openTeam(s.sportPath, s.leaguePath, s.teamId)}
-                  >
-                    {s.logo && <img className="team-logo" src={s.logo} alt="" />}
-                    <span className="streak-chip-team">{s.team}</span>
-                    <span className="streak-chip-count">{s.streak}連勝</span>
-                    <span className="streak-chip-league">{s.leagueName}</span>
-                  </button>
                 ))}
               </div>
             </>
           )}
 
-          {hotTeams && hotTeams.length > 0 && (
+          {titleFights.length > 0 && (
             <>
-              <div className="home-subsection-title">直近{hotTeams[0].played}試合の勝率が高いチーム</div>
-              <div className="hot-teams-row">
-                {hotTeams.map((t, i) => (
-                  <button
-                    type="button"
-                    key={i}
-                    className="hot-team-card"
-                    onClick={() => openTeam(t.sportPath, t.leaguePath, t.teamId)}
-                  >
-                    <div className="hot-team-card-top">
-                      {t.logo && <img className="team-logo" src={t.logo} alt="" />}
-                      <span className="streak-chip-team">{t.team}</span>
-                      <span className="streak-chip-count">
-                        {t.wins}勝{t.losses}敗
-                      </span>
-                      <span className="streak-chip-league">{t.leagueName}</span>
+              <div className="home-subsection-title">🥊 王座統一戦とは</div>
+              <div className="title-explainer-card">
+                <div>{boxingTitleSystem.explanation}</div>
+                <div className="playoff-format-tip">{boxingTitleSystem.tip}</div>
+                <div className="title-fights-list">
+                  {titleFights.map((f, i) => (
+                    <div key={i} className="title-fight-row">
+                      {formatDate(f.date)} ・ {f.cardName}
                     </div>
-                    {t.commentary && <div className="hot-team-card-commentary">{t.commentary}</div>}
-                  </button>
-                ))}
+                  ))}
+                </div>
               </div>
             </>
           )}
