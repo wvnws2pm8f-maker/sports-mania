@@ -50,44 +50,43 @@ export function invalidate(sportPath, leaguePath) {
   dataCache.delete(`${sportPath}-${leaguePath}`)
 }
 
-// ホーム画面の「注目ニュース」。public/data/news.json を読む。
-let newsPromise = null
-export function getNews() {
-  if (!newsPromise) {
+// public/data/直下の単一JSONファイルを読む共通ヘルパー(news.json, hot-teams.json,
+// season-milestones.jsonなど、キーが要らないシンプルなファイル向け)。
+const singleFileCache = new Map()
+function getSingleFile(filename) {
+  if (!singleFileCache.has(filename)) {
     const base = import.meta.env.BASE_URL || '/'
-    const url = `${base}data/news.json`.replace(/\/{2,}/g, '/').replace(':/', '://')
-    newsPromise = fetch(url, { cache: 'no-store' })
+    const url = `${base}data/${filename}`.replace(/\/{2,}/g, '/').replace(':/', '://')
+    const promise = fetch(url, { cache: 'no-store' })
       .then((res) => {
-        if (!res.ok) throw new Error(`news fetch error ${res.status}`)
+        if (!res.ok) throw new Error(`${filename} fetch error ${res.status}`)
         return res.json()
       })
       .catch((err) => {
-        newsPromise = null
+        singleFileCache.delete(filename)
         throw err
       })
+    singleFileCache.set(filename, promise)
   }
-  return newsPromise
+  return singleFileCache.get(filename)
+}
+
+// ホーム画面の「注目ニュース」。public/data/news.json を読む。
+export function getNews() {
+  return getSingleFile('news.json')
 }
 
 // ホーム画面の「調子の良いチーム」。public/data/hot-teams.json を読む。
 // (直近10試合の勝率をscripts/fetch-team-details.mjsが1日1回計算する。現在の連勝数だけでは
 //  連勝が途切れた直後の好調なチームを見逃すため、こちらは「直近◯試合で◯勝」の観点で拾う)
-let hotTeamsPromise = null
 export function getHotTeams() {
-  if (!hotTeamsPromise) {
-    const base = import.meta.env.BASE_URL || '/'
-    const url = `${base}data/hot-teams.json`.replace(/\/{2,}/g, '/').replace(':/', '://')
-    hotTeamsPromise = fetch(url, { cache: 'no-store' })
-      .then((res) => {
-        if (!res.ok) throw new Error(`hot-teams fetch error ${res.status}`)
-        return res.json()
-      })
-      .catch((err) => {
-        hotTeamsPromise = null
-        throw err
-      })
-  }
-  return hotTeamsPromise
+  return getSingleFile('hot-teams.json')
+}
+
+// ホーム画面の「🏆 チャンピオンへの道」用、MLB/NBAのプレーオフまでの日数。
+// public/data/season-milestones.json を読む(scripts/fetch-season-milestones.mjsが1日1回更新)。
+export function getSeasonMilestones() {
+  return getSingleFile('season-milestones.json')
 }
 
 // チーム詳細(ロスター等)。public/data/team/<sportPath>-<teamId>.json を読む。

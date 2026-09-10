@@ -1,9 +1,35 @@
 import { useEffect, useState } from 'react'
-import { getNews, getStandings, getScoreboard, getHotTeams } from '../services/espn.js'
+import { getNews, getStandings, getScoreboard, getHotTeams, getSeasonMilestones } from '../services/espn.js'
 import { allLeagueTargets } from '../data/leagues.js'
 import { rivalries } from '../data/rivalries.js'
+import { mlbPlayoffFormat, nbaPlayoffFormat, boxingTitleSystem } from '../data/championshipInfo.js'
 import boxingData from '../data/boxingSchedule.json'
 import TeamDetail from './TeamDetail.jsx'
+
+function daysUntil(iso) {
+  if (!iso) return null
+  const diff = new Date(iso).getTime() - Date.now()
+  return Math.max(0, Math.ceil(diff / (24 * 60 * 60 * 1000)))
+}
+
+// サッカーの優勝争い・残留争いを順位表から計算する。
+// 降格枠の数はリーグによって違う(20チームリーグは3枠、18チームリーグは2枠が一般的)ので、
+// チーム数から単純に推測する(playoff等の細かい例外までは踏み込まない)。
+function computeSoccerRace(rows) {
+  if (!rows || rows.length < 6) return null
+  const sorted = [...rows]
+  const leader = sorted[0]
+  const second = sorted[1]
+  const titleGap = second ? parseInt(leader.points, 10) - parseInt(second.points, 10) : null
+
+  const relegationCount = sorted.length >= 20 ? 3 : 2
+  const lastSafe = sorted[sorted.length - relegationCount - 1]
+  const firstDropZone = sorted[sorted.length - relegationCount]
+  const relegationGap =
+    lastSafe && firstDropZone ? parseInt(lastSafe.points, 10) - parseInt(firstDropZone.points, 10) : null
+
+  return { leader, second, titleGap, lastSafe, firstDropZone, relegationGap }
+}
 
 function formatDate(iso) {
   const d = new Date(iso)
@@ -38,6 +64,7 @@ export default function HomeView() {
   const [news, setNews] = useState(null)
   const [streaks, setStreaks] = useState(null)
   const [hotTeams, setHotTeams] = useState(null)
+  const [milestones, setMilestones] = useState(null)
   const [notableGames, setNotableGames] = useState(null)
   const [leaguesData, setLeaguesData] = useState(null)
   const [error, setError] = useState(null)
@@ -56,6 +83,10 @@ export default function HomeView() {
     getHotTeams()
       .then((d) => !cancelled && setHotTeams(d.teams))
       .catch((err) => console.warn('[HomeView] hot teams load failed', err)) // 無くても致命的ではないので黙って諦める
+
+    getSeasonMilestones()
+      .then((d) => !cancelled && setMilestones(d))
+      .catch((err) => console.warn('[HomeView] season milestones load failed', err)) // 無くても致命的ではない
 
     Promise.all(
       allLeagueTargets.map(async (t) => {
@@ -170,6 +201,20 @@ export default function HomeView() {
 
   const today = new Date().toISOString().slice(0, 10)
   const upcomingFights = (boxingData.fights || []).filter((f) => f.date >= today).slice(0, 2)
+  const titleFights = (boxingData.fights || []).filter((f) => f.date >= today && /王座|統一/.test(f.cardName))
+
+  const soccerRaces = (leaguesData || [])
+    .filter((l) => l.sportPath === 'soccer' && l.leaguePath !== 'uefa.champions')
+    .map((l) => {
+      const race = computeSoccerRace(l.standings?.[0]?.rows)
+      return race ? { ...race, leagueName: l.leagueName, sportPath: l.sportPath, leaguePath: l.leaguePath } : null
+    })
+    .filter(Boolean)
+
+  const mlbDays = milestones?.mlb ? (milestones.mlb.inPostseason ? null : daysUntil(milestones.mlb.postseasonStart)) : null
+  const nbaMilestone = milestones?.nba?.nextMilestone
+  const nbaDays = nbaMilestone ? daysUntil(nbaMilestone.startDate) : null
+  const nbaLabel = nbaMilestone?.type === 3 ? 'プレーオフ開幕' : nbaMilestone?.type === 2 ? 'レギュラーシーズン開幕' : null
 
   return (
     <div className="home-view">
@@ -202,6 +247,97 @@ export default function HomeView() {
           </div>
         </section>
       )}
+
+      <section className="home-section">
+        <h2 className="home-section-title">🏆 チャンピオンへの道</h2>
+
+        <div className="home-subsection-title">プレーオフまで</div>
+        <div className="playoff-countdown-row">
+          <div className="playoff-countdown-card">
+            <div className="playoff-countdown-sport">⚾ MLB</div>
+            {milestones?.mlb?.inPostseason ? (
+              <div className="playoff-countdown-days">ポストシーズン開催中！</div>
+            ) : mlbDays !== null ? (
+              <div className="playoff-countdown-days">
+                ポストシーズンまで <span className="col-strong">あと{mlbDays}日</span>
+              </div>
+            ) : (
+              <div className="muted">よみこみちゅう…</div>
+            )}
+            <ul className="playoff-format-list">
+              {mlbPlayoffFormat.rounds.map((r) => (
+                <li key={r.name}>
+                  {r.name}: {r.format}
+                </li>
+              ))}
+            </ul>
+            <div className="playoff-format-tip">{mlbPlayoffFormat.tip}</div>
+          </div>
+
+          <div className="playoff-countdown-card">
+            <div className="playoff-countdown-sport">🏀 NBA</div>
+            {nbaDays !== null ? (
+              <div className="playoff-countdown-days">
+                {nbaLabel}まで <span className="col-strong">あと{nbaDays}日</span>
+              </div>
+            ) : (
+              <div className="muted">よみこみちゅう…</div>
+            )}
+            <ul className="playoff-format-list">
+              {nbaPlayoffFormat.rounds.map((r) => (
+                <li key={r.name}>
+                  {r.name}: {r.format}
+                </li>
+              ))}
+            </ul>
+            <div className="playoff-format-tip">{nbaPlayoffFormat.tip}</div>
+          </div>
+        </div>
+
+        {soccerRaces.length > 0 && (
+          <>
+            <div className="home-subsection-title">⚽ 優勝争い・残留争い</div>
+            <div className="race-row">
+              {soccerRaces.map((r) => (
+                <div key={r.leaguePath} className="race-card">
+                  <div className="race-card-league">{r.leagueName}</div>
+                  <div className="race-card-line">
+                    <span className="race-card-label">首位</span>
+                    {r.leader.logo && <img className="team-logo" src={r.leader.logo} alt="" />}
+                    <span>{r.leader.team}</span>
+                    {r.titleGap !== null && (
+                      <span className="race-card-gap">{r.titleGap === 0 ? '(2位と同勝点)' : `(2位と${r.titleGap}差)`}</span>
+                    )}
+                  </div>
+                  {r.relegationGap !== null && (
+                    <div className="race-card-line">
+                      <span className="race-card-label">残留争い</span>
+                      <span>ボーダーとの差 {r.relegationGap}pt</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {titleFights.length > 0 && (
+          <>
+            <div className="home-subsection-title">🥊 王座統一戦とは</div>
+            <div className="title-explainer-card">
+              <div>{boxingTitleSystem.explanation}</div>
+              <div className="playoff-format-tip">{boxingTitleSystem.tip}</div>
+              <div className="title-fights-list">
+                {titleFights.map((f, i) => (
+                  <div key={i} className="title-fight-row">
+                    {formatDate(f.date)} ・ {f.cardName}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </section>
 
       {((streaks && streaks.length > 0) || (hotTeams && hotTeams.length > 0)) && (
         <section className="home-section">

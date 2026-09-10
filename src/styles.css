@@ -608,6 +608,115 @@ img {
   white-space: normal;
 }
 
+/* ---------- championship / playoff section ---------- */
+.playoff-countdown-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.playoff-countdown-card {
+  flex: 0 0 auto;
+  width: 260px;
+  background: #10192c;
+  border: 1px solid #263354;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.playoff-countdown-sport {
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.playoff-countdown-days {
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.playoff-format-list {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #a9b6d6;
+  line-height: 1.7;
+}
+
+.playoff-format-tip {
+  font-size: 12px;
+  color: #6c7a99;
+  line-height: 1.6;
+  padding-top: 6px;
+  border-top: 1px solid #263354;
+}
+
+.race-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.race-card {
+  flex: 0 0 auto;
+  min-width: 220px;
+  background: #10192c;
+  border: 1px solid #263354;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+.race-card-league {
+  font-weight: 800;
+  font-size: 12px;
+  color: #a9b6d6;
+  margin-bottom: 6px;
+}
+
+.race-card-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.race-card-label {
+  color: #6c7a99;
+  font-size: 11px;
+  min-width: 44px;
+}
+
+.race-card-gap {
+  color: #4ee1a0;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.title-explainer-card {
+  background: #10192c;
+  border: 1px solid #263354;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #c7d0e6;
+}
+
+.title-fights-list {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #263354;
+  font-size: 12.5px;
+  color: #a9b6d6;
+}
+
+.title-fight-row {
+  margin-bottom: 4px;
+}
+
 .streak-chip-team {
   font-weight: 700;
 }
