@@ -2,7 +2,9 @@
 // (=AI機能はオプション。キーが無くてもニュース取得・ロスター取得自体は今まで通り動く)。
 // GitHub Actionsでは Settings > Secrets and variables > Actions に登録した
 // GEMINI_API_KEY を workflow の env: 経由で渡している。
-const MODEL = 'gemini-2.0-flash'
+// 2026-09時点: gemini-2.0-flash は廃止され、gemini-3.6-flash への切り替えが必要
+// (実際にワークフロー実行時に "model ... is no longer available" エラーで判明した)。
+const MODEL = 'gemini-3.6-flash'
 
 export function hasGeminiKey() {
   return Boolean(process.env.GEMINI_API_KEY)
