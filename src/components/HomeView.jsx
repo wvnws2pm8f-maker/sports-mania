@@ -120,7 +120,8 @@ export default function HomeView() {
               sportPath: l.sportPath,
               leaguePath: l.leaguePath,
               leagueName: l.leagueName,
-              label: rivalry?.label || '注目カード'
+              label: rivalry?.label || '注目カード',
+              background: rivalry?.background || ''
             })
             continue
           }
@@ -195,6 +196,7 @@ export default function HomeView() {
                     <span>{g.away.team}</span>
                   </button>
                 </div>
+                {g.background && <div className="notable-game-background">{g.background}</div>}
               </div>
             ))}
           </div>
