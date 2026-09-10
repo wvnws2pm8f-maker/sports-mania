@@ -73,16 +73,30 @@ async function translateArticle(headline, description) {
   return parsed
 }
 
+// 1回の実行であまりに多くの新規記事を一気に翻訳しようとすると、無料枠の
+// 1分あたりのレート制限に引っかかって後半の記事が軒並み失敗する現象が実際に起きた
+// (2026-09-10、間隔1.5秒でも改善しきれなかった)。1回あたりの新規翻訳数に上限を設け、
+// 間隔も広げることで安全マージンを取る。上限に達して翻訳できなかった記事は
+// 未翻訳のまま残るが、次回実行時にまた「新規」として再挑戦される。
+const MAX_NEW_TRANSLATIONS_PER_RUN = 8
+const DELAY_BETWEEN_CALLS_MS = 4500
+
 async function translateArticles(articles) {
   if (!hasGeminiKey()) return articles
   const cache = loadPreviousTranslations()
   const result = []
+  let newTranslationCount = 0
   for (const a of articles) {
     const cached = cache.get(a.id)
     if (cached && cached.headline === a.headline) {
       result.push({ ...a, headlineJa: cached.headlineJa, descriptionJa: cached.descriptionJa })
       continue
     }
+    if (newTranslationCount >= MAX_NEW_TRANSLATIONS_PER_RUN) {
+      result.push(a) // 今回は上限に達したのでスキップ(次回実行時に再挑戦される)
+      continue
+    }
+    newTranslationCount++
     const translated = await translateArticle(a.headline, a.description)
     if (translated) {
       result.push({ ...a, headlineJa: translated.headline, descriptionJa: translated.description || '' })
@@ -90,8 +104,8 @@ async function translateArticles(articles) {
       result.push(a) // 翻訳失敗時は原文のまま(次回実行時に再度リトライされる)
     }
     // 無料枠のレート制限(1分あたりの回数制限)に引っかからないよう、実際にAPIを呼んだ時だけ間隔を空ける
-    // (キャッシュ済みでスキップしたものは待たない)
-    await sleep(1500)
+    // (キャッシュ済み・上限到達でスキップしたものは待たない)
+    await sleep(DELAY_BETWEEN_CALLS_MS)
   }
   return result
 }
