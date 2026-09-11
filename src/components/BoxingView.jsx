@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import boxingData from '../data/boxingSchedule.json'
 import { articles } from '../data/articles.js'
+import { isFavoriteBoxer, toggleFavoriteBoxer } from '../utils/favorites.js'
 import ArticleList from './ArticleList.jsx'
 
 const boxingArticles = articles.filter((a) => a.sport === 'boxing')
@@ -10,6 +11,20 @@ function formatDate(iso) {
   const d = new Date(iso)
   const w = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
   return `${d.getMonth() + 1}/${d.getDate()}(${w})`
+}
+
+// ボクシングにはチーム/ロスターが無いため、選手名そのものに☆を付けて推し登録する。
+function FighterChip({ name }) {
+  const [fav, setFav] = useState(() => isFavoriteBoxer(name))
+  return (
+    <button
+      type="button"
+      className={`fighter-chip ${fav ? 'is-active' : ''}`}
+      onClick={() => setFav(toggleFavoriteBoxer(name))}
+    >
+      {fav ? '★' : '☆'} {name}
+    </button>
+  )
 }
 
 export default function BoxingView() {
@@ -40,6 +55,13 @@ export default function BoxingView() {
               <div key={i} className="game-card boxing-card">
                 <div className="game-card-status">{formatDate(f.date)}</div>
                 <div className="boxing-card-title">{f.cardName}</div>
+                {f.fighters && f.fighters.length > 0 && (
+                  <div className="fighter-chip-row">
+                    {f.fighters.map((name) => (
+                      <FighterChip key={name} name={name} />
+                    ))}
+                  </div>
+                )}
                 <div className="boxing-card-venue">📍 {f.venue}</div>
                 {f.broadcast && <div className="boxing-card-broadcast">📺 {f.broadcast}</div>}
               </div>

@@ -192,10 +192,15 @@ export default function HomeView() {
     return { ...t, row, nextGame }
   })
 
-  // 推し選手: 名前が見出し/要約に含まれるニュースを拾う(注目ニュースの範囲内なので網羅的ではない)
+  // 推し選手: 名前が見出し/要約に含まれるニュースを拾う(注目ニュースの範囲内なので網羅的ではない)。
+  // ボクシングの選手はチームが無いので、代わりにboxingSchedule.jsonから次の試合を探す。
   const favPlayersWithNews = favoritePlayers.map((p) => {
     const relatedNews = (news || []).filter((a) => (a.headline || '').includes(p.name) || (a.description || '').includes(p.name))
-    return { ...p, relatedNews }
+    const nextFight =
+      p.sportPath === 'boxing'
+        ? (boxingData.fights || []).find((f) => f.date >= today && (f.fighters || []).includes(p.name))
+        : null
+    return { ...p, relatedNews, nextFight }
   })
 
   const notableTeaser =
@@ -251,23 +256,35 @@ export default function HomeView() {
             )}
             {favPlayersWithNews.length > 0 && (
               <div className="oshi-players-row">
-                {favPlayersWithNews.map((p) => (
-                  <button
-                    key={`${p.sportPath}-${p.playerId}`}
-                    type="button"
-                    className="oshi-player-card"
-                    onClick={() => openTeam(p.sportPath, p.leaguePath, p.teamId)}
-                  >
-                    <img className="oshi-player-avatar" src={p.headshot || p.teamLogo} alt="" />
-                    <div className="oshi-player-name">{p.name}</div>
-                    <div className="oshi-player-meta">
-                      {p.teamName} {p.jersey && `#${p.jersey}`} {p.position}
-                    </div>
-                    {p.relatedNews.length > 0 && (
-                      <div className="oshi-player-news">📰 {p.relatedNews[0].headlineJa || p.relatedNews[0].headline}</div>
-                    )}
-                  </button>
-                ))}
+                {favPlayersWithNews.map((p) => {
+                  const isBoxer = p.sportPath === 'boxing'
+                  const Tag = isBoxer ? 'div' : 'button'
+                  return (
+                    <Tag
+                      key={`${p.sportPath}-${p.playerId}`}
+                      type={isBoxer ? undefined : 'button'}
+                      className="oshi-player-card"
+                      onClick={isBoxer ? undefined : () => openTeam(p.sportPath, p.leaguePath, p.teamId)}
+                    >
+                      {p.headshot || p.teamLogo ? (
+                        <img className="oshi-player-avatar" src={p.headshot || p.teamLogo} alt="" />
+                      ) : (
+                        <div className="oshi-player-avatar oshi-player-avatar-fallback">🥊</div>
+                      )}
+                      <div className="oshi-player-name">{p.name}</div>
+                      <div className="oshi-player-meta">
+                        {isBoxer
+                          ? p.nextFight
+                            ? `次戦 ${formatDate(p.nextFight.date)}`
+                            : '次戦未定'
+                          : `${p.teamName} ${p.jersey && `#${p.jersey}`} ${p.position}`}
+                      </div>
+                      {p.relatedNews.length > 0 && (
+                        <div className="oshi-player-news">📰 {p.relatedNews[0].headlineJa || p.relatedNews[0].headline}</div>
+                      )}
+                    </Tag>
+                  )
+                })}
               </div>
             )}
           </>

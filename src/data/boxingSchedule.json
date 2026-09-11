@@ -6,54 +6,63 @@
       "date": "2026-09-11",
       "venue": "Frontwave Arena, Oceanside",
       "cardName": "Giovani Santillan vs Abass Baraou",
+      "fighters": ["Giovani Santillan", "Abass Baraou"],
       "broadcast": "ProBox TV"
     },
     {
       "date": "2026-09-12",
       "venue": "T-Mobile Arena, Las Vegas",
       "cardName": "Ryan Garcia vs Conor Benn（WBC世界ウェルター級王座）",
+      "fighters": ["Ryan Garcia", "Conor Benn"],
       "broadcast": "Paramount+ / DAZN PPV"
     },
     {
       "date": "2026-09-12",
       "venue": "T-Mobile Arena, Las Vegas",
       "cardName": "Jai Opetaia vs Noel Mikaelian（クルーザー級 Ring/Zuffa/WBC統一戦、Garcia-Bennの同一カード）",
+      "fighters": ["Jai Opetaia", "Noel Mikaelian"],
       "broadcast": "Paramount+ / DAZN PPV"
     },
     {
       "date": "2026-09-19",
       "venue": "Pechanga Arena, San Diego",
       "cardName": "Isaac Cruz vs Nestor Bravo（暫定WBC世界スーパーライト級王座）",
+      "fighters": ["Isaac Cruz", "Nestor Bravo"],
       "broadcast": "DAZN"
     },
     {
       "date": "2026-09-26",
       "venue": "Copper Box Arena, London",
       "cardName": "Johnny Fisher vs Michael Pirotton（ヘビー級、FisherのZuffa Boxing移籍後デビュー戦）",
+      "fighters": ["Johnny Fisher", "Michael Pirotton"],
       "broadcast": "Sky Sports"
     },
     {
       "date": "2026-09-27",
       "venue": "TOYOTA ARENA TOKYO",
       "cardName": "井上拓真 vs 那須川天心２（WBC世界バンタム級タイトルマッチ、10ヶ月ぶりの再戦）",
+      "fighters": ["井上拓真", "那須川天心"],
       "broadcast": "Prime Video（Prime Video Boxing 16、独占ライブ配信）"
     },
     {
       "date": "2026-10-03",
       "venue": "Utilita Arena, Birmingham",
       "cardName": "Ben Whittaker vs Conor Wallace（IBF ライトヘビー級 最終予選）",
+      "fighters": ["Ben Whittaker", "Conor Wallace"],
       "broadcast": "DAZN"
     },
     {
       "date": "2026-10-10",
       "venue": "Wintrust Arena, Chicago",
       "cardName": "Floyd Schofield vs Lucas Bahdi（空位のWBA世界ライト級王座）",
+      "fighters": ["Floyd Schofield", "Lucas Bahdi"],
       "broadcast": "DAZN"
     },
     {
       "date": "2026-10-17",
       "venue": "O2 Arena, Greenwich, London",
       "cardName": "Daniel Dubois vs Fabio Wardley（WBO世界ヘビー級王座防衛戦）",
+      "fighters": ["Daniel Dubois", "Fabio Wardley"],
       "broadcast": "DAZN PPV"
     }
   ]

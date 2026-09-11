@@ -56,3 +56,25 @@ export function toggleFavoritePlayer(player) {
   writeList(PLAYERS_KEY, list)
   return idx < 0
 }
+
+// ボクシングにはチーム/ロスターの概念が無く、選手(ボクサー)単体を推し登録する。
+// playerIdはESPNの選手IDが無いので、名前そのものをキーに使う(同名衝突のリスクはあるが、
+// この規模のアプリでは十分実用的)。
+export function isFavoriteBoxer(name) {
+  return isFavoritePlayer('boxing', name)
+}
+
+export function toggleFavoriteBoxer(name) {
+  return toggleFavoritePlayer({
+    sportPath: 'boxing',
+    leaguePath: null,
+    teamId: null,
+    playerId: name,
+    name,
+    jersey: '',
+    position: '',
+    headshot: '',
+    teamName: '',
+    teamLogo: ''
+  })
+}
