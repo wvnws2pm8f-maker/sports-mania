@@ -302,7 +302,12 @@ export default function HomeView() {
                             : '次戦未定'
                           : `${p.teamName} ${p.jersey && `#${p.jersey}`} ${p.position}`}
                       </div>
-                      {p.profile && <div className="oshi-player-news">{p.profile.titles} ・ {p.profile.record}</div>}
+                      {p.profile?.recentUpdate && <div className="oshi-player-news">📰 {p.profile.recentUpdate.summary}</div>}
+                      {p.profile && !p.profile.recentUpdate && (
+                        <div className="oshi-player-news">
+                          {p.profile.titles} ・ {p.profile.record}
+                        </div>
+                      )}
                       {p.stats && (
                         <div className="roster-card-stats">
                           {Object.entries(p.stats.values).map(([label, value]) => (

@@ -18,6 +18,37 @@ function findProfile(name) {
   return boxerProfiles.boxers.find((b) => b.name === name) || null
 }
 
+function timeAgoDate(dateStr) {
+  const diffDays = Math.round((Date.now() - new Date(dateStr).getTime()) / (24 * 60 * 60 * 1000))
+  if (diffDays <= 0) return '今日'
+  return `${diffDays}日前`
+}
+
+// アプリ内で自動収集はできない(静的サイトにはニュースを検索する仕組みが無い)ので、
+// 代わりにX/Googleニュースの検索結果に一発で飛べるリンクを用意する。
+function SearchLinks({ name }) {
+  return (
+    <div className="search-links-row">
+      <a
+        className="search-link-button"
+        href={`https://twitter.com/search?q=${encodeURIComponent(name)}&f=live`}
+        target="_blank"
+        rel="noreferrer"
+      >
+        𝕏 で検索
+      </a>
+      <a
+        className="search-link-button"
+        href={`https://www.google.com/search?q=${encodeURIComponent(name)}&tbm=nws`}
+        target="_blank"
+        rel="noreferrer"
+      >
+        🔍 ニュース検索
+      </a>
+    </div>
+  )
+}
+
 // ボクシングにはチーム/ロスターが無いため、選手名そのものに☆を付けて推し登録する。
 function FighterChip({ name, onToggle }) {
   const [fav, setFav] = useState(() => isFavoriteBoxer(name))
@@ -108,6 +139,12 @@ export default function BoxingView() {
                           </div>
                           <div className="boxer-profile-line col-strong">{profile.record}</div>
                           <div className="boxer-profile-note">{profile.note}</div>
+                          {profile.recentUpdate && (
+                            <div className="boxer-profile-recent">
+                              <span className="boxer-profile-recent-tag">最近の動向({timeAgoDate(profile.recentUpdate.checkedAt)}確認)</span>
+                              <div>{profile.recentUpdate.summary}</div>
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="muted">
@@ -121,6 +158,7 @@ export default function BoxingView() {
                       ) : (
                         <div className="muted">次戦は未発表です</div>
                       )}
+                      <SearchLinks name={p.name} />
                     </div>
                   )
                 })}

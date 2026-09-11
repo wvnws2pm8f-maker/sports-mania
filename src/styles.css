@@ -377,6 +377,42 @@ img {
   margin: 4px 0;
 }
 
+.boxer-profile-recent {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #4a3418;
+  font-size: 12px;
+  color: #c7d0e6;
+  line-height: 1.6;
+}
+
+.boxer-profile-recent-tag {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #4ee1a0;
+  margin-bottom: 3px;
+}
+
+.search-links-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.search-link-button {
+  flex: 1;
+  text-align: center;
+  border: 1px solid #263354;
+  background: #0d1526;
+  color: #a9b6d6;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .boxing-note {
   margin-bottom: 10px;
   font-size: 12.5px;
