@@ -71,6 +71,7 @@ export default function SportPanel({ sportPath, leaguePath, articles }) {
       <div className="sport-panel">
         <TeamDetail
           sportPath={sportPath}
+          leaguePath={leaguePath}
           teamId={selectedTeam.id}
           standingsRow={selectedTeam}
           games={games}

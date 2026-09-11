@@ -3,6 +3,7 @@ import { getNews, getStandings, getScoreboard, getSeasonMilestones } from '../se
 import { allLeagueTargets } from '../data/leagues.js'
 import { rivalries } from '../data/rivalries.js'
 import { mlbPlayoffFormat, nbaPlayoffFormat, boxingTitleSystem } from '../data/championshipInfo.js'
+import { getFavoriteTeams, getFavoritePlayers } from '../utils/favorites.js'
 import boxingData from '../data/boxingSchedule.json'
 import TeamDetail from './TeamDetail.jsx'
 
@@ -55,6 +56,11 @@ export default function HomeView() {
   // 「今週の注目カード」「チャンピオンへの道」はタイトルだけ横並びで表示し、
   // タップしたものだけその場で詳細を展開する(両方を初めから開くとホーム画面が縦に長くなりすぎるため)。
   const [expanded, setExpanded] = useState(null) // null | 'notable' | 'championship'
+  // 推し(お気に入り)チーム・選手。ログイン機能が無いためこの端末のlocalStorageに保存されている。
+  // 他のページ(TeamDetail)で☆を付けて戻ってくるとHomeViewが再マウントされるので、
+  // マウント時に読み直せば最新の状態になる。
+  const [favoriteTeams] = useState(() => getFavoriteTeams())
+  const [favoritePlayers] = useState(() => getFavoritePlayers())
 
   useEffect(() => {
     let cancelled = false
@@ -149,6 +155,7 @@ export default function HomeView() {
       <div className="home-view">
         <TeamDetail
           sportPath={selectedTeam.sportPath}
+          leaguePath={selectedTeam.leaguePath}
           teamId={selectedTeam.teamId}
           standingsRow={standingsRow}
           games={league?.games}
@@ -175,6 +182,22 @@ export default function HomeView() {
   const nbaDays = nbaMilestone ? daysUntil(nbaMilestone.startDate) : null
   const nbaLabel = nbaMilestone?.type === 3 ? 'プレーオフ開幕' : nbaMilestone?.type === 2 ? 'レギュラーシーズン開幕' : null
 
+  // 推しチーム: 現在の成績・次の試合を、既にホームで取得済みのleaguesDataから拾う
+  const favTeamsWithData = favoriteTeams.map((t) => {
+    const league = (leaguesData || []).find((l) => l.sportPath === t.sportPath && l.leaguePath === t.leaguePath)
+    const row = league?.standings?.flatMap((g) => g.rows).find((r) => r.id === t.teamId)
+    const nextGame = (league?.games || [])
+      .filter((g) => !g.isFinal && (g.home.id === t.teamId || g.away.id === t.teamId))
+      .sort((a, b) => new Date(a.date) - new Date(b.date))[0]
+    return { ...t, row, nextGame }
+  })
+
+  // 推し選手: 名前が見出し/要約に含まれるニュースを拾う(注目ニュースの範囲内なので網羅的ではない)
+  const favPlayersWithNews = favoritePlayers.map((p) => {
+    const relatedNews = (news || []).filter((a) => (a.headline || '').includes(p.name) || (a.description || '').includes(p.name))
+    return { ...p, relatedNews }
+  })
+
   const notableTeaser =
     notableGames && notableGames.length > 0
       ? `${notableGames[0].label}${notableGames.length > 1 ? ` ほか${notableGames.length - 1}件` : ''}`
@@ -198,6 +221,58 @@ export default function HomeView() {
   return (
     <div className="home-view">
       {error && <p className="error-text">{error}</p>}
+
+      <section className="home-section">
+        <h2 className="home-section-title">⭐ 推し</h2>
+        {favTeamsWithData.length === 0 && favPlayersWithNews.length === 0 ? (
+          <p className="oshi-empty-hint">チームや選手のページで☆をタップすると、ここに表示されます</p>
+        ) : (
+          <>
+            {favTeamsWithData.length > 0 && (
+              <div className="oshi-teams-row">
+                {favTeamsWithData.map((t) => (
+                  <button
+                    key={`${t.sportPath}-${t.teamId}`}
+                    type="button"
+                    className="oshi-team-card"
+                    onClick={() => openTeam(t.sportPath, t.leaguePath, t.teamId)}
+                  >
+                    {t.logo && <img className="team-logo" src={t.logo} alt="" />}
+                    <span className="oshi-team-name">{t.name}</span>
+                    {t.row && (
+                      <span className="oshi-team-record">
+                        {t.sportPath === 'soccer' ? `勝点${t.row.points}` : `${t.row.wins}勝${t.row.losses}敗`}
+                      </span>
+                    )}
+                    {t.nextGame && <span className="oshi-team-next">次戦 {formatDate(t.nextGame.date)}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {favPlayersWithNews.length > 0 && (
+              <div className="oshi-players-row">
+                {favPlayersWithNews.map((p) => (
+                  <button
+                    key={`${p.sportPath}-${p.playerId}`}
+                    type="button"
+                    className="oshi-player-card"
+                    onClick={() => openTeam(p.sportPath, p.leaguePath, p.teamId)}
+                  >
+                    <img className="oshi-player-avatar" src={p.headshot || p.teamLogo} alt="" />
+                    <div className="oshi-player-name">{p.name}</div>
+                    <div className="oshi-player-meta">
+                      {p.teamName} {p.jersey && `#${p.jersey}`} {p.position}
+                    </div>
+                    {p.relatedNews.length > 0 && (
+                      <div className="oshi-player-news">📰 {p.relatedNews[0].headlineJa || p.relatedNews[0].headline}</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
 
       <div className="digest-row">
         <button type="button" className={`digest-tile ${expanded === 'notable' ? 'is-active' : ''}`} onClick={() => toggle('notable')}>
