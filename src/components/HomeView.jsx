@@ -5,6 +5,7 @@ import { rivalries } from '../data/rivalries.js'
 import { mlbPlayoffFormat, nbaPlayoffFormat, boxingTitleSystem } from '../data/championshipInfo.js'
 import { getFavoriteTeams, getFavoritePlayers } from '../utils/favorites.js'
 import boxingData from '../data/boxingSchedule.json'
+import boxerProfiles from '../data/boxerProfiles.json'
 import TeamDetail from './TeamDetail.jsx'
 
 function daysUntil(iso) {
@@ -221,7 +222,8 @@ export default function HomeView() {
       p.sportPath === 'boxing'
         ? (boxingData.fights || []).find((f) => f.date >= today && (f.fighters || []).includes(p.name))
         : null
-    return { ...p, relatedNews, nextFight, stats: playerStats[p.playerId] || null }
+    const profile = p.sportPath === 'boxing' ? boxerProfiles.boxers.find((b) => b.name === p.name) || null : null
+    return { ...p, relatedNews, nextFight, profile, stats: playerStats[p.playerId] || null }
   })
 
   const notableTeaser =
@@ -300,6 +302,7 @@ export default function HomeView() {
                             : '次戦未定'
                           : `${p.teamName} ${p.jersey && `#${p.jersey}`} ${p.position}`}
                       </div>
+                      {p.profile && <div className="oshi-player-news">{p.profile.titles} ・ {p.profile.record}</div>}
                       {p.stats && (
                         <div className="roster-card-stats">
                           {Object.entries(p.stats.values).map(([label, value]) => (
