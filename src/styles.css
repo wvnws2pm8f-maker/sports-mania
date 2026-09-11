@@ -955,3 +955,31 @@ img {
   color: #6c7a99;
   margin-top: 6px;
 }
+
+.news-list-compact {
+  margin-bottom: 18px;
+}
+
+.news-card-compact {
+  padding: 8px;
+}
+
+.news-card-compact .news-card-image {
+  width: 64px;
+  height: 64px;
+}
+
+.news-card-compact .news-card-headline {
+  font-size: 13px;
+}
+
+.news-card-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  color: #ffd166;
+  background: #241a10;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-bottom: 4px;
+}

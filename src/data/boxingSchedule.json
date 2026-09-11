@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-09-07",
-  "note": "ボクシングは安定した無料APIが無いため手動で更新しています。「ボクシングの日程を更新して」と言ってもらえれば最新情報に更新します。",
+  "updatedAt": "2026-09-11",
+  "note": "ボクシングは安定した無料APIが無いため手動で更新しています(2026-09-11、Web検索で1件ずつ実在確認して全面的に修正)。「ボクシングの日程を更新して」と言ってもらえれば最新情報に更新します。",
   "fights": [
     {
       "date": "2026-09-11",
@@ -15,33 +15,39 @@
       "broadcast": "Paramount+ / DAZN PPV"
     },
     {
-      "date": "2026-09-19",
-      "venue": "Pechanga Arena, San Diego",
-      "cardName": "Isaac Cruz vs Nestor Bravo",
-      "broadcast": ""
+      "date": "2026-09-12",
+      "venue": "T-Mobile Arena, Las Vegas",
+      "cardName": "Jai Opetaia vs Noel Mikaelian（クルーザー級 Ring/Zuffa/WBC統一戦、Garcia-Bennの同一カード）",
+      "broadcast": "Paramount+ / DAZN PPV"
     },
     {
-      "date": "2026-09-25",
-      "venue": "T-Mobile Arena, Las Vegas",
-      "cardName": "Floyd Mayweather vs Manny Pacquiao",
-      "broadcast": "Netflix"
+      "date": "2026-09-19",
+      "venue": "Pechanga Arena, San Diego",
+      "cardName": "Isaac Cruz vs Nestor Bravo（暫定WBC世界スーパーライト級王座）",
+      "broadcast": "DAZN"
     },
     {
       "date": "2026-09-26",
       "venue": "Copper Box Arena, London",
-      "cardName": "Johnny Fisher vs TBA（ヘビー級）",
+      "cardName": "Johnny Fisher vs Michael Pirotton（ヘビー級、FisherのZuffa Boxing移籍後デビュー戦）",
       "broadcast": "Sky Sports"
     },
     {
+      "date": "2026-09-27",
+      "venue": "TOYOTA ARENA TOKYO",
+      "cardName": "井上拓真 vs 那須川天心２（WBC世界バンタム級タイトルマッチ、10ヶ月ぶりの再戦）",
+      "broadcast": "Prime Video（Prime Video Boxing 16、独占ライブ配信）"
+    },
+    {
       "date": "2026-10-03",
-      "venue": "BP Pulse Live, Birmingham",
+      "venue": "Utilita Arena, Birmingham",
       "cardName": "Ben Whittaker vs Conor Wallace（IBF ライトヘビー級 最終予選）",
       "broadcast": "DAZN"
     },
     {
       "date": "2026-10-10",
       "venue": "Wintrust Arena, Chicago",
-      "cardName": "Floyd Schofield vs Lucas Bahdi",
+      "cardName": "Floyd Schofield vs Lucas Bahdi（空位のWBA世界ライト級王座）",
       "broadcast": "DAZN"
     },
     {

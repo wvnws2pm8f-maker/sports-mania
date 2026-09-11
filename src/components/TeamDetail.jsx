@@ -1,11 +1,26 @@
 import { useEffect, useState } from 'react'
-import { getTeamDetail } from '../services/espn.js'
+import { getTeamDetail, getNews } from '../services/espn.js'
 import { isFavoriteTeam, toggleFavoriteTeam, isFavoritePlayer, toggleFavoritePlayer } from '../utils/favorites.js'
 
 function formatDate(iso) {
   const d = new Date(iso)
   const w = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
   return `${d.getMonth() + 1}/${d.getDate()}(${w})`
+}
+
+function timeAgo(iso) {
+  const diffMin = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (diffMin < 60) return `${Math.max(diffMin, 0)}分前`
+  const diffHour = Math.round(diffMin / 60)
+  if (diffHour < 24) return `${diffHour}時間前`
+  return `${Math.round(diffHour / 24)}日前`
+}
+
+// チーム名の最後の単語(愛称・略称であることが多い: "Los Angeles Dodgers"→"Dodgers")で
+// ニュースの見出し/要約に含まれるかを判定する。フルネームだと一致しないニュースが多いため。
+function teamNewsKeyword(teamName) {
+  const words = (teamName || '').trim().split(/\s+/)
+  return words[words.length - 1] || teamName
 }
 
 // 選手の顔写真。無い/読み込み失敗(主にサッカー・一部のマイナー選手)はチームロゴで代用する。
@@ -22,6 +37,7 @@ export default function TeamDetail({ sportPath, leaguePath, teamId, standingsRow
   const [error, setError] = useState(null)
   const [teamFav, setTeamFav] = useState(false)
   const [favPlayerIds, setFavPlayerIds] = useState([])
+  const [news, setNews] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -39,6 +55,9 @@ export default function TeamDetail({ sportPath, leaguePath, teamId, standingsRow
         console.warn('[TeamDetail] load failed', err)
         if (!cancelled) setError('選手情報を取得できませんでした。')
       })
+    getNews()
+      .then((d) => !cancelled && setNews(d.articles))
+      .catch((err) => console.warn('[TeamDetail] news load failed', err)) // 無くても致命的ではない
     return () => {
       cancelled = true
     }
@@ -51,6 +70,19 @@ export default function TeamDetail({ sportPath, leaguePath, teamId, standingsRow
   const isSoccerStyle = sportPath === 'soccer'
   const teamName = detail?.team?.name || standingsRow?.team || ''
   const teamLogo = detail?.team?.logo || standingsRow?.logo || ''
+
+  // このチームに関連しそうなニュース(注目ニュースの中から、愛称が見出し/要約に含まれるものを検索)
+  const teamKeyword = teamNewsKeyword(teamName)
+  const teamNews = teamKeyword
+    ? (news || []).filter((a) => (a.headline || '').includes(teamKeyword) || (a.description || '').includes(teamKeyword))
+    : []
+
+  // 推し選手(このチームの中で☆登録済み)に関連するニュース
+  const favPlayers = (detail?.roster || []).filter((p) => favPlayerIds.includes(p.id))
+  const favPlayerNews = favPlayers.map((p) => ({
+    player: p,
+    items: (news || []).filter((a) => (a.headline || '').includes(p.name) || (a.description || '').includes(p.name))
+  }))
 
   function handleToggleTeam() {
     const nowFav = toggleFavoriteTeam({ sportPath, leaguePath, teamId, name: teamName, logo: teamLogo })
@@ -104,6 +136,44 @@ export default function TeamDetail({ sportPath, leaguePath, teamId, standingsRow
             </>
           )}
         </div>
+      )}
+
+      {favPlayerNews.some((f) => f.items.length > 0) && (
+        <>
+          <div className="team-detail-section-title">⭐ 推し選手の関連ニュース</div>
+          <div className="news-list news-list-compact">
+            {favPlayerNews
+              .filter((f) => f.items.length > 0)
+              .flatMap((f) => f.items.slice(0, 2).map((a) => ({ ...a, playerName: f.player.name })))
+              .map((a) => (
+                <a key={`${a.playerName}-${a.id}`} className="news-card news-card-compact" href={a.link} target="_blank" rel="noreferrer">
+                  {a.image && <img className="news-card-image" src={a.image} alt="" />}
+                  <div className="news-card-body">
+                    <div className="news-card-tag">{a.playerName}</div>
+                    <div className="news-card-headline">{a.headlineJa || a.headline}</div>
+                    <div className="news-card-time">{timeAgo(a.published)}</div>
+                  </div>
+                </a>
+              ))}
+          </div>
+        </>
+      )}
+
+      {teamNews.length > 0 && (
+        <>
+          <div className="team-detail-section-title">📰 チーム関連ニュース</div>
+          <div className="news-list news-list-compact">
+            {teamNews.slice(0, 4).map((a) => (
+              <a key={a.id} className="news-card news-card-compact" href={a.link} target="_blank" rel="noreferrer">
+                {a.image && <img className="news-card-image" src={a.image} alt="" />}
+                <div className="news-card-body">
+                  <div className="news-card-headline">{a.headlineJa || a.headline}</div>
+                  <div className="news-card-time">{timeAgo(a.published)}</div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </>
       )}
 
       <div className="team-detail-section-title">直近・予定の試合</div>
