@@ -54,60 +54,59 @@ function loadPreviousTranslations() {
   }
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
+// 以前は記事ごとに1回ずつGeminiを呼んでいたが、1回の実行で新規記事が多いと
+// (特にサッカーは6リーグ分あるため上位リストの入れ替わりが激しい)、
+// 1分あたりのレート制限に引っかかったり、1回の実行あたりの新規翻訳数に上限(8件)を
+// 設けても入れ替わり速度に追いつけず、いつまでも未翻訳の記事が残り続ける問題があった
+// (2026-09-11に発覚)。そこで未翻訳分をまとめて1回のGemini呼び出しで一括翻訳する方式に変更。
+// API呼び出し回数が最大24記事でも1回で済むため、レート制限の影響をほぼ受けない。
+async function translateArticlesBatch(items) {
+  if (items.length === 0) return new Map()
+  const input = items.map((a) => ({ id: String(a.id), headline: a.headline, description: a.description }))
+  const prompt = `以下は英語のスポーツニュース記事の配列です。それぞれの見出し(headline)と要約(description)を自然な日本語に翻訳してください。
+出力は入力と同じ件数・同じ順序のJSON配列のみとし、他の説明・前置き・コードブロック記号は一切付けないでください。
+各要素は次の形式にしてください(idは入力のidをそのまま文字列でコピーすること): {"id": "入力と同じid", "headline": "翻訳した見出し", "description": "翻訳した要約"}
 
-async function translateArticle(headline, description) {
-  const prompt = `以下は英語のスポーツニュースの見出しと要約です。自然な日本語に翻訳してください。
-出力は次のJSON形式のみとし、他の説明・前置き・コードブロック記号は一切付けないでください。
-{"headline": "翻訳した見出し", "description": "翻訳した要約"}
-
-見出し: ${headline}
-要約: ${description}`
-  // asJson: Geminiに前置き無しの純粋なJSONだけを返させる。これが無いと、見出し=要約の
-  // 動画ハイライトのような単純な記事で説明文を付けて返すことがありJSON parseに失敗していた。
+入力:
+${JSON.stringify(input)}`
   const text = await callGemini(prompt, { asJson: true })
   const parsed = parseGeminiJson(text)
-  if (!parsed?.headline) return null
-  return parsed
+  const map = new Map()
+  if (Array.isArray(parsed)) {
+    parsed.forEach((item, i) => {
+      // idが文字列として正しく返らないケースに備え、返ってこなければ入力順で対応付ける
+      const id = item?.id != null ? String(item.id) : items[i] ? String(items[i].id) : null
+      if (id && item?.headline) map.set(id, item)
+    })
+  }
+  return map
 }
-
-// 1回の実行であまりに多くの新規記事を一気に翻訳しようとすると、無料枠の
-// 1分あたりのレート制限に引っかかって後半の記事が軒並み失敗する現象が実際に起きた
-// (2026-09-10、間隔1.5秒でも改善しきれなかった)。1回あたりの新規翻訳数に上限を設け、
-// 間隔も広げることで安全マージンを取る。上限に達して翻訳できなかった記事は
-// 未翻訳のまま残るが、次回実行時にまた「新規」として再挑戦される。
-const MAX_NEW_TRANSLATIONS_PER_RUN = 8
-const DELAY_BETWEEN_CALLS_MS = 4500
 
 async function translateArticles(articles) {
   if (!hasGeminiKey()) return articles
   const cache = loadPreviousTranslations()
-  const result = []
-  let newTranslationCount = 0
+  const toTranslate = []
+  const byId = new Map()
   for (const a of articles) {
     const cached = cache.get(a.id)
     if (cached && cached.headline === a.headline) {
-      result.push({ ...a, headlineJa: cached.headlineJa, descriptionJa: cached.descriptionJa })
-      continue
-    }
-    if (newTranslationCount >= MAX_NEW_TRANSLATIONS_PER_RUN) {
-      result.push(a) // 今回は上限に達したのでスキップ(次回実行時に再挑戦される)
-      continue
-    }
-    newTranslationCount++
-    const translated = await translateArticle(a.headline, a.description)
-    if (translated) {
-      result.push({ ...a, headlineJa: translated.headline, descriptionJa: translated.description || '' })
+      byId.set(a.id, { ...a, headlineJa: cached.headlineJa, descriptionJa: cached.descriptionJa })
     } else {
-      result.push(a) // 翻訳失敗時は原文のまま(次回実行時に再度リトライされる)
+      toTranslate.push(a)
     }
-    // 無料枠のレート制限(1分あたりの回数制限)に引っかからないよう、実際にAPIを呼んだ時だけ間隔を空ける
-    // (キャッシュ済み・上限到達でスキップしたものは待たない)
-    await sleep(DELAY_BETWEEN_CALLS_MS)
   }
-  return result
+  if (toTranslate.length > 0) {
+    const translatedMap = await translateArticlesBatch(toTranslate)
+    for (const a of toTranslate) {
+      const t = translatedMap.get(String(a.id))
+      if (t?.headline) {
+        byId.set(a.id, { ...a, headlineJa: t.headline, descriptionJa: t.description || '' })
+      } else {
+        byId.set(a.id, a) // 翻訳失敗時は原文のまま(次回実行時に再度リトライされる)
+      }
+    }
+  }
+  return articles.map((a) => byId.get(a.id) || a)
 }
 
 async function main() {
