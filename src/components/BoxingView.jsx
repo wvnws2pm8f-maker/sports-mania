@@ -4,6 +4,7 @@ import boxerProfiles from '../data/boxerProfiles.json'
 import { articles } from '../data/articles.js'
 import { isFavoriteBoxer, toggleFavoriteBoxer, getFavoritePlayers } from '../utils/favorites.js'
 import ArticleList from './ArticleList.jsx'
+import SearchLinks from './SearchLinks.jsx'
 
 const boxingArticles = articles.filter((a) => a.sport === 'boxing')
 const SUB_TABS = ['試合予定', '読み物']
@@ -22,31 +23,6 @@ function timeAgoDate(dateStr) {
   const diffDays = Math.round((Date.now() - new Date(dateStr).getTime()) / (24 * 60 * 60 * 1000))
   if (diffDays <= 0) return '今日'
   return `${diffDays}日前`
-}
-
-// アプリ内で自動収集はできない(静的サイトにはニュースを検索する仕組みが無い)ので、
-// 代わりにX/Googleニュースの検索結果に一発で飛べるリンクを用意する。
-function SearchLinks({ name }) {
-  return (
-    <div className="search-links-row">
-      <a
-        className="search-link-button"
-        href={`https://twitter.com/search?q=${encodeURIComponent(name)}&f=live`}
-        target="_blank"
-        rel="noreferrer"
-      >
-        𝕏 で検索
-      </a>
-      <a
-        className="search-link-button"
-        href={`https://www.google.com/search?q=${encodeURIComponent(name)}&tbm=nws`}
-        target="_blank"
-        rel="noreferrer"
-      >
-        🔍 ニュース検索
-      </a>
-    </div>
-  )
 }
 
 // ボクシングにはチーム/ロスターが無いため、選手名そのものに☆を付けて推し登録する。

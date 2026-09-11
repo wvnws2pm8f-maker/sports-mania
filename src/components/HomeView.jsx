@@ -7,6 +7,7 @@ import { getFavoriteTeams, getFavoritePlayers } from '../utils/favorites.js'
 import boxingData from '../data/boxingSchedule.json'
 import boxerProfiles from '../data/boxerProfiles.json'
 import TeamDetail from './TeamDetail.jsx'
+import SearchLinks from './SearchLinks.jsx'
 
 function daysUntil(iso) {
   if (!iso) return null
@@ -57,6 +58,10 @@ export default function HomeView() {
   // 「今週の注目カード」「チャンピオンへの道」はタイトルだけ横並びで表示し、
   // タップしたものだけその場で詳細を展開する(両方を初めから開くとホーム画面が縦に長くなりすぎるため)。
   const [expanded, setExpanded] = useState(null) // null | 'notable' | 'championship'
+  // 推し選手カードをタップした時に、その場で詳細(全成績・全ニュース・検索リンク等)を展開する。
+  // 以前はボクサーのカードはタップしても何も起きず、選手カードはチームページに飛ぶだけで
+  // 選手個人の詳細が見えなかった(ユーザー報告により発覚、2026-09-11)。
+  const [expandedPlayerKey, setExpandedPlayerKey] = useState(null) // `${sportPath}-${playerId}` | null
   // 推し(お気に入り)チーム・選手。ログイン機能が無いためこの端末のlocalStorageに保存されている。
   // 他のページ(TeamDetail)で☆を付けて戻ってくるとHomeViewが再マウントされるので、
   // マウント時に読み直せば最新の状態になる。
@@ -281,13 +286,13 @@ export default function HomeView() {
               <div className="oshi-players-row">
                 {favPlayersWithNews.map((p) => {
                   const isBoxer = p.sportPath === 'boxing'
-                  const Tag = isBoxer ? 'div' : 'button'
+                  const key = `${p.sportPath}-${p.playerId}`
                   return (
-                    <Tag
-                      key={`${p.sportPath}-${p.playerId}`}
-                      type={isBoxer ? undefined : 'button'}
-                      className="oshi-player-card"
-                      onClick={isBoxer ? undefined : () => openTeam(p.sportPath, p.leaguePath, p.teamId)}
+                    <button
+                      key={key}
+                      type="button"
+                      className={`oshi-player-card ${expandedPlayerKey === key ? 'is-active' : ''}`}
+                      onClick={() => setExpandedPlayerKey((prev) => (prev === key ? null : key))}
                     >
                       {p.headshot || p.teamLogo ? (
                         <img className="oshi-player-avatar" src={p.headshot || p.teamLogo} alt="" />
@@ -321,11 +326,104 @@ export default function HomeView() {
                       {p.relatedNews.length > 0 && (
                         <div className="oshi-player-news">📰 {p.relatedNews[0].headlineJa || p.relatedNews[0].headline}</div>
                       )}
-                    </Tag>
+                      <div className="oshi-player-tap-hint">{expandedPlayerKey === key ? '▲ とじる' : '▼ もっと見る'}</div>
+                    </button>
                   )
                 })}
               </div>
             )}
+
+            {expandedPlayerKey &&
+              (() => {
+                const p = favPlayersWithNews.find((x) => `${x.sportPath}-${x.playerId}` === expandedPlayerKey)
+                if (!p) return null
+                const isBoxer = p.sportPath === 'boxing'
+                return (
+                  <div className="oshi-player-detail">
+                    <div className="oshi-player-detail-header">
+                      {p.headshot || p.teamLogo ? (
+                        <img className="oshi-player-avatar" src={p.headshot || p.teamLogo} alt="" />
+                      ) : (
+                        <div className="oshi-player-avatar oshi-player-avatar-fallback">🥊</div>
+                      )}
+                      <div>
+                        <div className="oshi-player-detail-name">{p.name}</div>
+                        <div className="oshi-player-meta">
+                          {isBoxer ? 'ボクシング' : `${p.teamName} ${p.jersey && `#${p.jersey}`} ${p.position}`}
+                        </div>
+                      </div>
+                    </div>
+
+                    {isBoxer ? (
+                      <>
+                        {p.profile ? (
+                          <>
+                            <div className="boxer-profile-line">
+                              {p.profile.weightClass} ・ {p.profile.titles}
+                            </div>
+                            <div className="boxer-profile-line col-strong">{p.profile.record}</div>
+                            <div className="boxer-profile-note">{p.profile.note}</div>
+                            {p.profile.recentUpdate && (
+                              <div className="boxer-profile-recent">
+                                <span className="boxer-profile-recent-tag">最近の動向({p.profile.recentUpdate.checkedAt}確認)</span>
+                                <div>{p.profile.recentUpdate.summary}</div>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <p className="muted">プロフィール未登録です。「{p.name}のプロフィールを追加して」と頼んでもらえれば調べて追加します。</p>
+                        )}
+                        {p.nextFight ? (
+                          <div className="boxer-profile-line">
+                            📅 次戦: {formatDate(p.nextFight.date)} {p.nextFight.cardName}
+                            {p.nextFight.venue && <> ・ 📍 {p.nextFight.venue}</>}
+                          </div>
+                        ) : (
+                          <p className="muted">次戦は未発表です</p>
+                        )}
+                        <SearchLinks name={p.name} />
+                      </>
+                    ) : (
+                      <>
+                        {p.stats ? (
+                          <div className="roster-card-stats">
+                            {Object.entries(p.stats.values).map(([label, value]) => (
+                              <span key={label}>
+                                {value}
+                                {label}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="muted">個人成績は未取得です(次回のデータ更新をお待ちください)</p>
+                        )}
+                        {p.relatedNews.length > 0 ? (
+                          <div className="oshi-player-detail-news-list">
+                            {p.relatedNews.map((a) => (
+                              <a key={a.id} className="news-card" href={a.link} target="_blank" rel="noreferrer">
+                                <div className="news-card-body">
+                                  <div className="news-card-headline">{a.headlineJa || a.headline}</div>
+                                  <div className="news-card-time">{timeAgo(a.published)}</div>
+                                </div>
+                              </a>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="muted">現在、この選手に直接関する注目ニュースはありません(チームのニュースはチームページで確認できます)</p>
+                        )}
+                        <SearchLinks name={p.name} />
+                        <button
+                          type="button"
+                          className="oshi-player-detail-team-link"
+                          onClick={() => openTeam(p.sportPath, p.leaguePath, p.teamId)}
+                        >
+                          {p.teamName || 'チーム'}のページを見る →
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )
+              })()}
           </>
         )}
       </section>

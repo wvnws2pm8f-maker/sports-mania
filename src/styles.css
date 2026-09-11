@@ -760,6 +760,56 @@ img {
   overflow: hidden;
 }
 
+.oshi-player-card.is-active {
+  border-color: #ffd166;
+}
+
+.oshi-player-tap-hint {
+  font-size: 10px;
+  color: #6c7a99;
+  margin-top: 2px;
+}
+
+.oshi-player-detail {
+  background: #10192c;
+  border: 1px solid #263354;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.oshi-player-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.oshi-player-detail-name {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.oshi-player-detail-news-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.oshi-player-detail-team-link {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid #3a4b78;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12.5px;
+  color: #9db4ff;
+  cursor: pointer;
+}
+
 .digest-row {
   display: flex;
   gap: 10px;
