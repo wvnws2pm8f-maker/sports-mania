@@ -99,6 +99,15 @@ AIにその場で生成させると年代や記録を間違えるリスクがあ
 選手IDが無いため名前そのものをキーに使用)。ホームの推しカードでは、`src/data/boxingSchedule.json`
 の`fighters`配列と名前が一致する次の試合を表示します(チームが無いためタップしても遷移しません)。
 
+## 選手個人の成績について
+
+NBA・MLBはESPNの個人成績API(`common/v3/sports/{sport}/{league}/athletes/{id}/stats`)から
+最新シーズンの主要な数字(NBA: 得点/リバウンド/アシスト、MLB: 打率/本塁打/打点、または
+防御率/勝敗)を取得し、ロスターの選手カード・推し選手カードに表示しています
+(`scripts/fetch-team-details.mjs`が1日1回、ロスターと同時に取得)。
+**サッカーはこのAPIが「Statistics not found」を返し、個人成績データがそもそも存在しません**
+(選手の顔写真が少ないのと同じ制約)。ボクシングも同様に個人成績データはありません。
+
 ## プレーオフまでの日数について
 
 `scripts/fetch-season-milestones.mjs`(update-team-data.ymlで1日1回実行)が、ESPNの

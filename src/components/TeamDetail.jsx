@@ -227,6 +227,16 @@ export default function TeamDetail({ sportPath, leaguePath, teamId, standingsRow
                   {p.jersey && <span>#{p.jersey}</span>}
                   {p.position && <span>{p.position}</span>}
                 </div>
+                {p.stats && (
+                  <div className="roster-card-stats">
+                    {Object.entries(p.stats.values).map(([label, value]) => (
+                      <span key={label}>
+                        {value}
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           })}

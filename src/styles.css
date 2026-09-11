@@ -538,6 +538,16 @@ img {
   gap: 6px;
 }
 
+.roster-card-stats {
+  font-size: 10.5px;
+  color: #4ee1a0;
+  font-weight: 700;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+}
+
 /* ---------- home view ---------- */
 .home-section {
   margin-bottom: 24px;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getNews, getStandings, getScoreboard, getSeasonMilestones } from '../services/espn.js'
+import { getNews, getStandings, getScoreboard, getSeasonMilestones, getTeamDetail } from '../services/espn.js'
 import { allLeagueTargets } from '../data/leagues.js'
 import { rivalries } from '../data/rivalries.js'
 import { mlbPlayoffFormat, nbaPlayoffFormat, boxingTitleSystem } from '../data/championshipInfo.js'
@@ -61,9 +61,30 @@ export default function HomeView() {
   // マウント時に読み直せば最新の状態になる。
   const [favoriteTeams] = useState(() => getFavoriteTeams())
   const [favoritePlayers] = useState(() => getFavoritePlayers())
+  const [playerStats, setPlayerStats] = useState({}) // playerId -> stats(最新の個人成績)
 
   useEffect(() => {
     let cancelled = false
+
+    // 推し選手の個人成績(サッカー/ボクシングには無いので該当選手のみ取得)。
+    // 登録時点のスナップショットではなく毎回最新のチーム詳細データから拾う。
+    Promise.all(
+      favoritePlayers
+        .filter((p) => p.sportPath !== 'boxing' && p.teamId)
+        .map((p) =>
+          getTeamDetail(p.sportPath, p.teamId)
+            .then((d) => {
+              const row = d.roster.find((r) => r.id === p.playerId)
+              return row?.stats ? [p.playerId, row.stats] : null
+            })
+            .catch(() => null)
+        )
+    ).then((pairs) => {
+      if (cancelled) return
+      const map = {}
+      for (const pair of pairs) if (pair) map[pair[0]] = pair[1]
+      setPlayerStats(map)
+    })
 
     getNews()
       .then((d) => !cancelled && setNews(d.articles))
@@ -200,7 +221,7 @@ export default function HomeView() {
       p.sportPath === 'boxing'
         ? (boxingData.fights || []).find((f) => f.date >= today && (f.fighters || []).includes(p.name))
         : null
-    return { ...p, relatedNews, nextFight }
+    return { ...p, relatedNews, nextFight, stats: playerStats[p.playerId] || null }
   })
 
   const notableTeaser =
@@ -279,6 +300,16 @@ export default function HomeView() {
                             : '次戦未定'
                           : `${p.teamName} ${p.jersey && `#${p.jersey}`} ${p.position}`}
                       </div>
+                      {p.stats && (
+                        <div className="roster-card-stats">
+                          {Object.entries(p.stats.values).map(([label, value]) => (
+                            <span key={label}>
+                              {value}
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       {p.relatedNews.length > 0 && (
                         <div className="oshi-player-news">📰 {p.relatedNews[0].headlineJa || p.relatedNews[0].headline}</div>
                       )}

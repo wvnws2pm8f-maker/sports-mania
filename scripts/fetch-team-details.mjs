@@ -18,7 +18,44 @@ import { TARGETS, LEAGUE_NAMES } from './leagues.mjs'
 import { callGemini, hasGeminiKey } from './gemini.mjs'
 
 const BASE = 'https://site.api.espn.com/apis/site/v2'
+const COMMON_BASE = 'https://site.api.espn.com/apis/common/v3'
 const CONCURRENCY = 5
+const PLAYER_STATS_CONCURRENCY = 4
+
+// 選手個人の成績。ESPNのcommon/v3 athletes/{id}/stats エンドポイントから取得する。
+// サッカーはこのエンドポイントが404("Statistics not found")を返し、個人成績が
+// そもそも公開データに存在しない(顔写真と同じ制約)。NBA/MLBのみ対応する。
+// categories[0]が競技・ポジションに応じた「主要な成績カテゴリ」(NBAなら平均成績、
+// MLBなら投手ならpitching・野手ならbattingの派生カテゴリ)になっているようなので、
+// カテゴリ名を決め打ちせず、そこから欲しいラベルだけを拾う。
+const STATS_LABELS_BY_SPORT = {
+  basketball: ['PTS', 'REB', 'AST'],
+  baseball: ['AVG', 'HR', 'RBI', 'ERA', 'W', 'L']
+}
+
+async function fetchPlayerStats(sportPath, leaguePath, athleteId) {
+  const wantedLabels = STATS_LABELS_BY_SPORT[sportPath]
+  if (!wantedLabels) return null
+  try {
+    const res = await fetch(`${COMMON_BASE}/sports/${sportPath}/${leaguePath}/athletes/${athleteId}/stats`, {
+      headers: { 'User-Agent': 'sports-mania-app/1.0 (data sync script)' }
+    })
+    if (!res.ok) return null // 404が普通に起きる(スタッツ未収録の選手も多い)ので静かに諦める
+    const data = await res.json()
+    const cat = data.categories?.[0]
+    if (!cat?.statistics?.length) return null
+    const latest = cat.statistics[cat.statistics.length - 1]
+    const values = {}
+    for (const label of wantedLabels) {
+      const idx = cat.labels.indexOf(label)
+      if (idx >= 0 && latest.stats?.[idx] !== undefined) values[label] = latest.stats[idx]
+    }
+    if (Object.keys(values).length === 0) return null
+    return { season: latest.season?.year || null, values }
+  } catch {
+    return null
+  }
+}
 
 async function fetchJson(url) {
   const res = await fetch(url, { headers: { 'User-Agent': 'sports-mania-app/1.0 (data sync script)' } })
@@ -108,6 +145,16 @@ async function fetchTeamDetail(sportPath, leaguePath, teamMeta) {
       return null
     })
   ])
+  const roster = flattenAthletes(sportPath, rosterData.athletes)
+
+  // 個人成績はサッカーには存在しない(STATS_LABELS_BY_SPORTに無ければ即nullが返る)ので、
+  // その場合は無駄なリクエストを送らずスキップする。
+  if (STATS_LABELS_BY_SPORT[sportPath]) {
+    await runPool(roster, PLAYER_STATS_CONCURRENCY, async (p) => {
+      p.stats = await fetchPlayerStats(sportPath, leaguePath, p.id)
+    })
+  }
+
   return {
     team: {
       id: teamMeta.id,
@@ -116,7 +163,7 @@ async function fetchTeamDetail(sportPath, leaguePath, teamMeta) {
       logo: teamMeta.logos?.[0]?.href || teamMeta.logo || '',
       color: teamMeta.color || ''
     },
-    roster: flattenAthletes(sportPath, rosterData.athletes),
+    roster,
     recentForm,
     updatedAt: new Date().toISOString()
   }
