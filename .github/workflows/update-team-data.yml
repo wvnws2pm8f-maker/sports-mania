@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  actions: write # 下のdeploy.yml手動起動に必要
 
 concurrency:
   group: update-team-data
@@ -33,13 +34,23 @@ jobs:
         run: node scripts/fetch-season-milestones.mjs
 
       - name: Commit and push if changed
+        id: commit
         run: |
           git config user.name "sports-mania-bot"
           git config user.email "actions@users.noreply.github.com"
           git add public/data/team public/data/hot-teams.json public/data/season-milestones.json
           if git diff --cached --quiet; then
             echo "変更なし。スキップします。"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "chore(data): update team rosters"
             git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # update-data.ymlと同じ理由(GITHUB_TOKENでのpushはpush契機のワークフローを連鎖起動しない)で必要。
+      - name: Trigger site redeploy
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --repo "${{ github.repository }}"

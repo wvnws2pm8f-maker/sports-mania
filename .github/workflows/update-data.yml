@@ -2,8 +2,10 @@ name: Update Sports Data
 
 # ブラウザから直接ESPNの公開APIを叩くとCORSでブロックされるため、
 # ここ(GitHub Actionsのサーバー環境)で定期的にデータを取得し、
-# public/data/*.json としてコミットする。main へのpushで deploy.yml が
-# 走り、最新データを含んだサイトが自動で再公開される。
+# public/data/*.json としてコミットする。
+# 【注意】既定のGITHUB_TOKENでのpushはGitHubの仕様でpush契機のワークフロー(deploy.yml)を
+# 連鎖起動しないため、下の"Trigger site redeploy"ステップで明示的にdeploy.ymlを起動している。
+# これが無いと、データは更新され続けても公開サイトは直近の「人間による」push時点のまま古くなる。
 on:
   schedule:
     - cron: '*/15 * * * *' # 15分おき(UTC)
@@ -11,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  actions: write # 下のdeploy.yml手動起動に必要
 
 concurrency:
   group: update-sports-data
@@ -35,13 +38,28 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # 未設定でも動く(翻訳なしの英語表示になるだけ)
 
       - name: Commit and push if changed
+        id: commit
         run: |
           git config user.name "sports-mania-bot"
           git config user.email "actions@users.noreply.github.com"
           git add public/data
           if git diff --cached --quiet; then
             echo "変更なし。スキップします。"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "chore(data): update sports data"
             git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # 【重要】github-actions bot自身が既定のGITHUB_TOKENでpushしても、GitHubの仕様上
+      # (無限ループ防止のため)push契機のワークフロー(deploy.yml)は自動で連鎖起動されない。
+      # このためデータは15分おきに更新されているのに、実際に公開されるサイトは
+      # 直近に「人間が」pushした時点のデータのまま止まる、という不具合が長期間気づかれずにいた
+      # (2026-09-12、順位表の地区分け修正が反映されないというユーザー報告で発覚)。
+      # ここで明示的にdeploy.ymlをworkflow_dispatchで呼び出すことで解決する。
+      - name: Trigger site redeploy
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --repo "${{ github.repository }}"
