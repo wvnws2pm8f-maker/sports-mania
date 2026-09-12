@@ -57,12 +57,28 @@ function normalizeEntry(entry) {
   }
 }
 
+// ESPNの順位表APIはリーグによって階層の深さが違う。MLB/NBAは
+// リーグ/カンファレンス(children) > 地区(さらにchildren) > 各チーム、と2階層ネストしており、
+// 従来はこの1階層目(アメリカンリーグ/ナショナルリーグ=15チームずつ)で止めていたため、
+// 本来の「地区別」順位表(ア・ナ各リーグ東地区/中地区/西地区=5チームずつ×6)にならず、
+// ユーザーから「違う、もう少し細かいはず」と指摘された(2026-09-12)。
+// 子(children)を持つノードは実体の無い中間集計なので、子が無くなる末端までずっと辿る。
+function collectStandingsGroups(node) {
+  if (node.children && node.children.length > 0) {
+    return node.children.flatMap(collectStandingsGroups)
+  }
+  return [{ name: node.name, entries: node.standings?.entries || [] }]
+}
+
 function normalizeStandings(data) {
-  const groups = data.children && data.children.length > 0 ? data.children : [{ name: data.name, standings: data.standings }]
+  const groups =
+    data.children && data.children.length > 0
+      ? data.children.flatMap(collectStandingsGroups)
+      : [{ name: data.name, entries: data.standings?.entries || [] }]
   return groups
     .map((g) => ({
       groupName: g.name,
-      rows: (g.standings?.entries || []).map(normalizeEntry)
+      rows: (g.entries || []).map(normalizeEntry)
     }))
     .filter((g) => g.rows.length > 0)
 }
