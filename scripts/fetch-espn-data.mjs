@@ -119,7 +119,11 @@ function normalizeScoreboard(data) {
 async function fetchLeague(sportPath, leaguePath) {
   const dates = scoreboardDateRange()
   const [standingsRaw, scoreboardRaw] = await Promise.all([
-    fetchJson(`${BASE}/v2/sports/${sportPath}/${leaguePath}/standings`),
+    // level=3(地区別)を明示しないと、このAPIはデフォルトでリーグ/カンファレンス止まりの
+    // 集計(MLBならアメリカンリーグ/ナショナルリーグの15チームずつ)しか返してくれず、
+    // 前回の"childrenを再帰的に辿る"修正だけでは効果が無かった(2026-09-12、実データで確認して発覚)。
+    // 地区の概念が無いサッカーに対しても無害(その場合は今まで通りのグループ数が返る想定)。
+    fetchJson(`${BASE}/v2/sports/${sportPath}/${leaguePath}/standings?level=3`),
     fetchJson(`${BASE}/site/v2/sports/${sportPath}/${leaguePath}/scoreboard?dates=${dates}`)
   ])
   return {
