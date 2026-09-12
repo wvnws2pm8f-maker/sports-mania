@@ -44,7 +44,11 @@ export default function StandingsTable({ groups, variant = 'us', onSelectTeam })
               <tbody>
                 {g.rows.map((r, i) => (
                   <tr key={r.id || i}>
-                    <td className="col-rank">{r.rank || i + 1}</td>
+                    {/* r.rankはESPNのplayoffSeed(リーグ/カンファレンス全体でのプレーオフ順位)で、
+                        地区別に表示すると「2, 6, 7, 14, 15」のように飛び飛びになり紛らわしいため
+                        使わない(2026-09-13指摘)。表示中のグループ内での並び順(勝率順に整列済み)を
+                        そのまま「#」として使う */}
+                    <td className="col-rank">{i + 1}</td>
                     <td className="col-team">
                       <button
                         type="button"

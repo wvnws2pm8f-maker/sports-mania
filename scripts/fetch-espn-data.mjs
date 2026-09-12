@@ -70,6 +70,21 @@ function collectStandingsGroups(node) {
   return [{ name: node.name, entries: node.standings?.entries || [] }]
 }
 
+// ESPNのstandings.entriesはグループ(地区/カンファレンス)ごとに必ずしも成績順に並んでおらず、
+// 特に地区別(level=3)で取得すると、そのグループ内の実際の勝敗と無関係な順番で返ってくることがある
+// (例: ドジャースが地区首位なのに配列の3番目に来る)。表示側で必ず勝率(無ければ勝点)の高い順に
+// 並べ直す(ユーザー指摘、2026-09-13「ドジャースとかの順位がおかしい」)。
+function sortRows(rows) {
+  return [...rows].sort((a, b) => {
+    const aHasWinPercent = a.winPercent !== ''
+    const bHasWinPercent = b.winPercent !== ''
+    if (aHasWinPercent || bHasWinPercent) {
+      return parseFloat(b.winPercent || '0') - parseFloat(a.winPercent || '0')
+    }
+    return parseInt(b.points || '0', 10) - parseInt(a.points || '0', 10)
+  })
+}
+
 function normalizeStandings(data) {
   const groups =
     data.children && data.children.length > 0
@@ -78,7 +93,7 @@ function normalizeStandings(data) {
   return groups
     .map((g) => ({
       groupName: g.name,
-      rows: (g.entries || []).map(normalizeEntry)
+      rows: sortRows((g.entries || []).map(normalizeEntry))
     }))
     .filter((g) => g.rows.length > 0)
 }
@@ -116,14 +131,20 @@ function normalizeScoreboard(data) {
   return (data.events || []).map(normalizeEvent)
 }
 
+// levelを明示しないと、このAPIはデフォルトでリーグ/カンファレンス止まりの集計
+// (MLBならアメリカンリーグ/ナショナルリーグの15チームずつ)しか返してくれない
+// (2026-09-12、実データで確認して発覚)。ただし「細かければ良い」わけではなく、
+// スポーツごとに慣習的な単位が違う: MLBは地区別(東/中/西=level3)、
+// NBAはカンファレンス別(東/西=level2)で見るのが一般的、とユーザーから指摘された(2026-09-13)。
+// サッカーは地区の概念が無い1枚のリーグ表なので指定不要(levelを省略)。
+const STANDINGS_LEVEL = { mlb: 3, nba: 2 }
+
 async function fetchLeague(sportPath, leaguePath) {
   const dates = scoreboardDateRange()
+  const level = STANDINGS_LEVEL[leaguePath]
+  const standingsUrl = `${BASE}/v2/sports/${sportPath}/${leaguePath}/standings${level ? `?level=${level}` : ''}`
   const [standingsRaw, scoreboardRaw] = await Promise.all([
-    // level=3(地区別)を明示しないと、このAPIはデフォルトでリーグ/カンファレンス止まりの
-    // 集計(MLBならアメリカンリーグ/ナショナルリーグの15チームずつ)しか返してくれず、
-    // 前回の"childrenを再帰的に辿る"修正だけでは効果が無かった(2026-09-12、実データで確認して発覚)。
-    // 地区の概念が無いサッカーに対しても無害(その場合は今まで通りのグループ数が返る想定)。
-    fetchJson(`${BASE}/v2/sports/${sportPath}/${leaguePath}/standings?level=3`),
+    fetchJson(standingsUrl),
     fetchJson(`${BASE}/site/v2/sports/${sportPath}/${leaguePath}/scoreboard?dates=${dates}`)
   ])
   return {
