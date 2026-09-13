@@ -1,0 +1,45 @@
+{
+  "guides": [
+    {
+      "sportPath": "baseball",
+      "teamId": "19",
+      "teamName": "Los Angeles Dodgers",
+      "venueName": "UNIQLO Field at Dodger Stadium",
+      "venueNote": "2026年からユニクロが命名権を取得(球場64年の歴史で初の企業命名)。日本ではおなじみのブランドが本拠地の名前になっているのは面白いポイント",
+      "address": "1000 Vin Scully Avenue, Los Angeles(チャベスラビン、ダウンタウンLAのすぐ北)",
+      "capacity": "56,000人(MLB最大の収容人数)",
+      "access": [
+        "無料シャトルバス「Dodger Stadium Express」: ユニオン駅発、始発は試合開始の約2.5時間前から10分間隔で運行。復路は試合終了45分後(花火などのイベントがあれば20分後)まで運行",
+        "サウスベイ方面からもハーバー・ゲートウェイ・トランジットセンター発のシャトルあり",
+        "ユニオン駅へはMetro A線・B線・D線でアクセス可能",
+        "バスの場合はMetro 4番系統で「Vin Scully/Sunset Bl」下車、球場入口まで徒歩すぐ"
+      ],
+      "parking": "球場に約16,000台分の駐車場あり。ユニオン駅に停めて($6程度)無料シャトルで行く方法が渋滞回避には人気",
+      "timing": "開場は試合開始の約2時間前。遅くとも1時間前には到着推奨",
+      "seatingTips": [
+        "コスパ重視ならLoge Level(準1階席)が値段と眺めの良さのバランスが良い",
+        "臨場感重視ならField Level(内野の最前列エリア)",
+        "ナイター(20時前開始の試合)は一塁側・ライト側の席が長く日差しが入るのでサングラス必須",
+        "夕方の試合は外野席上段からヤシの木とサンガブリエル山脈に沈む夕日が見える名物ビュー"
+      ],
+      "food": [
+        "Dodger Dog(球場名物のホットドッグ。グリル・グルテンフリー・コーシャなど11種類ある)",
+        "ガーリックフライ(にんにくとハーブをたっぷりまぶしたフライドポテト)",
+        "ロード・ベイクドポテト(チェダーチーズ・ベーコン・マカロニ&チーズなどを山盛りにしたもの)",
+        "ライトフィールド・プラザのチュロス"
+      ],
+      "atmosphereTips": [
+        "56,000人収容とMLB最大級だが、満員時の一体感・応援の声量はリーグ屈指",
+        "大谷翔平・山本由伸ら日本人選手在籍のため、日本語実況・日本語グッズ売り場が用意される試合もある"
+      ],
+      "checkedAt": "2026-09-13",
+      "sources": [
+        "https://www.metro.net/destinations/dodger-stadium/",
+        "https://dodgersnation.com/parking/",
+        "https://www.mlb.com/news/featured/dodger-stadium-guide-capacity-seating-chart-parking-and-more",
+        "https://www.foodrepublic.com/2148079/best-food-drinks-dodger-stadium-2026/",
+        "https://www.mlb.com/amp/news/dodger-stadium-announces-partnership-with-uniqlo.html"
+      ]
+    }
+  ]
+}

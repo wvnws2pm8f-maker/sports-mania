@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getTeamDetail, getNews } from '../services/espn.js'
 import { isFavoriteTeam, toggleFavoriteTeam, isFavoritePlayer, toggleFavoritePlayer } from '../utils/favorites.js'
+import venueGuides from '../data/venueGuides.json'
 
 function formatDate(iso) {
   const d = new Date(iso)
@@ -38,6 +39,11 @@ export default function TeamDetail({ sportPath, leaguePath, teamId, standingsRow
   const [teamFav, setTeamFav] = useState(false)
   const [favPlayerIds, setFavPlayerIds] = useState([])
   const [news, setNews] = useState(null)
+  const [showVenueGuide, setShowVenueGuide] = useState(false)
+
+  // 現地観戦ガイドはボクサープロフィール等と同じく、Web検索で裏取りした内容を
+  // src/data/venueGuides.jsonに手動でまとめている(自動更新できる情報ではないため)。
+  const venueGuide = venueGuides.guides.find((v) => v.sportPath === sportPath && v.teamId === teamId)
 
   useEffect(() => {
     let cancelled = false
@@ -134,6 +140,52 @@ export default function TeamDetail({ sportPath, leaguePath, teamId, standingsRow
               <span>勝率 {standingsRow.winPercent}</span>
               <span>{standingsRow.streak}</span>
             </>
+          )}
+        </div>
+      )}
+
+      {venueGuide && (
+        <div className="venue-guide-block">
+          <button type="button" className="venue-guide-toggle" onClick={() => setShowVenueGuide((v) => !v)}>
+            🏟️ 現地観戦ガイド {showVenueGuide ? '▲ とじる' : '▼ ひらく'}
+          </button>
+          {showVenueGuide && (
+            <div className="venue-guide-body">
+              <div className="venue-guide-title">{venueGuide.venueName}</div>
+              {venueGuide.venueNote && <div className="venue-guide-note">{venueGuide.venueNote}</div>}
+              <div className="venue-guide-meta">{venueGuide.address} ・ 収容人数: {venueGuide.capacity}</div>
+
+              <div className="venue-guide-section-title">🚃 アクセス</div>
+              <ul className="venue-guide-list">
+                {venueGuide.access.map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+              <div className="venue-guide-line">🅿️ {venueGuide.parking}</div>
+              <div className="venue-guide-line">⏰ {venueGuide.timing}</div>
+
+              <div className="venue-guide-section-title">🎟️ 座席のコツ</div>
+              <ul className="venue-guide-list">
+                {venueGuide.seatingTips.map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+
+              <div className="venue-guide-section-title">🌭 名物グルメ</div>
+              <ul className="venue-guide-list">
+                {venueGuide.food.map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+
+              <div className="venue-guide-section-title">🎉 雰囲気・楽しみ方</div>
+              <ul className="venue-guide-list">
+                {venueGuide.atmosphereTips.map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+              <div className="venue-guide-checked">最終確認: {venueGuide.checkedAt}(Web検索で裏取り済み)</div>
+            </div>
           )}
         </div>
       )}
