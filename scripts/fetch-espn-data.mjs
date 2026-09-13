@@ -123,7 +123,13 @@ function normalizeEvent(ev) {
       team: away?.team?.displayName || '',
       score: away?.score ?? '',
       logo: away?.team?.logo || ''
-    }
+    },
+    // プレーオフ期間中、ESPNは対戦カードに"シリーズ何勝何敗か"の情報(series)を付けてくることがある
+    // (例: "Lakers lead series 2-1")。レギュラーシーズン中はこのフィールド自体が無いので、
+    // その場合はnullのまま(表示側は無ければ何も出さないだけで、壊れない)。
+    // 2026-09シーズンのプレーオフがまだ始まっておらず実データで形を確認できていないため、
+    // 生の値をそのまま渡すだけにしておき、実際にプレーオフが始まったら表示側を仕上げる。
+    series: comp?.series?.summary ? { summary: comp.series.summary, title: comp.series.title || '' } : null
   }
 }
 

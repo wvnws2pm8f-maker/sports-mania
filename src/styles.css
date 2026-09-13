@@ -309,6 +309,13 @@ img {
   font-weight: 800;
 }
 
+.game-card-series {
+  font-size: 11.5px;
+  color: #ffd166;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
 .highlight-link {
   display: inline-block;
   margin-top: 8px;

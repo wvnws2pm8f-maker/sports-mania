@@ -25,6 +25,9 @@ export default function GameList({ games }) {
             {g.isLive && <span className="live-badge">LIVE</span>}
             <span>{g.isFinal || g.isLive ? g.statusDetail : formatDate(g.date)}</span>
           </div>
+          {/* プレーオフ中、ESPNが対戦カードに付けてくる"シリーズ何勝何敗か"の情報。
+              レギュラーシーズン中はg.seriesがnullなので何も表示されない */}
+          {g.series?.summary && <div className="game-card-series">🏆 {g.series.title ? `${g.series.title} ・ ` : ''}{g.series.summary}</div>}
           <div className="game-card-row">
             <div className="game-card-team">
               {g.away.logo && <img className="team-logo" src={g.away.logo} alt="" />}
