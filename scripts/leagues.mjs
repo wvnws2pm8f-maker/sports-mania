@@ -8,7 +8,8 @@ export const TARGETS = [
   ['soccer', 'fra.1'],
   ['soccer', 'uefa.champions'],
   ['basketball', 'nba'],
-  ['baseball', 'mlb']
+  ['baseball', 'mlb'],
+  ['football', 'nfl']
 ]
 
 // 表示用のリーグ名(hot-teams.json等、リーグ横断の一覧に使う)。src/data/leagues.jsと一致させること。
@@ -20,5 +21,6 @@ export const LEAGUE_NAMES = {
   'fra.1': 'リーグ・アン',
   'uefa.champions': 'チャンピオンズリーグ',
   nba: 'NBA',
-  mlb: 'MLB'
+  mlb: 'MLB',
+  nfl: 'NFL'
 }

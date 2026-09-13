@@ -37,6 +37,15 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # 未設定でも動く(翻訳なしの英語表示になるだけ)
 
+      # F1はESPNではなくJolpica-F1(F1専用の無料API、無認証で200リクエスト/時間まで)を使う。
+      # レース結果は年間24戦程度で15分おきの頻度は過剰だが、呼び出し回数がごく少なく
+      # レート制限に全く引っかからないため、他データと同じタイミングでまとめて更新している。
+      # continue-on-error: F1データ(第三者API)が落ちていても、ESPN分の更新・コミットは
+      # 止めたくない(このステップだけ失敗させても後続のcommitステップは実行される)。
+      - name: Fetch F1 data
+        run: node scripts/fetch-f1-data.mjs
+        continue-on-error: true
+
       - name: Commit and push if changed
         id: commit
         run: |

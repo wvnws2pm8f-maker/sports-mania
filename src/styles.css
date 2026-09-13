@@ -154,6 +154,33 @@ img {
   border-bottom: 1px solid #1c2740;
 }
 
+/* ---------- F1 ---------- */
+.f1-next-race-card {
+  background: #10192c;
+  border: 1px solid #1c2740;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.f1-next-race-label {
+  font-size: 11px;
+  color: #6c7a99;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.f1-next-race-name {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.f1-next-race-meta {
+  font-size: 12.5px;
+  color: #a9b6d6;
+  margin-top: 2px;
+}
+
 .muted {
   color: #6c7a99;
   font-size: 14px;

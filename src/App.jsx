@@ -4,6 +4,8 @@ import HomeView from './components/HomeView.jsx'
 import SoccerView from './components/SoccerView.jsx'
 import NBAView from './components/NBAView.jsx'
 import MLBView from './components/MLBView.jsx'
+import NFLView from './components/NFLView.jsx'
+import F1View from './components/F1View.jsx'
 import BoxingView from './components/BoxingView.jsx'
 
 const VIEWS = {
@@ -11,6 +13,8 @@ const VIEWS = {
   soccer: SoccerView,
   nba: NBAView,
   mlb: MLBView,
+  nfl: NFLView,
+  f1: F1View,
   boxing: BoxingView
 }
 

@@ -137,7 +137,9 @@ function normalizeScoreboard(data) {
 // スポーツごとに慣習的な単位が違う: MLBは地区別(東/中/西=level3)、
 // NBAはカンファレンス別(東/西=level2)で見るのが一般的、とユーザーから指摘された(2026-09-13)。
 // サッカーは地区の概念が無い1枚のリーグ表なので指定不要(levelを省略)。
-const STANDINGS_LEVEL = { mlb: 3, nba: 2 }
+// NFLもMLBと同じく地区別(AFC/NFC × East/North/South/West=8地区×4チーム)で見るのが
+// 一般的な慣習なのでlevel=3にする(2026-09-13、NFL追加時)。
+const STANDINGS_LEVEL = { mlb: 3, nba: 2, nfl: 3 }
 
 async function fetchLeague(sportPath, leaguePath) {
   const dates = scoreboardDateRange()

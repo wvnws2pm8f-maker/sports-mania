@@ -83,6 +83,13 @@ export function getHotTeams() {
   return getSingleFile('hot-teams.json')
 }
 
+// F1のドライバーズ/コンストラクターズ選手権・レースカレンダー。
+// public/data/f1.json を読む(scripts/fetch-f1-data.mjsが取得。ESPNではなくJolpica-F1という
+// F1専用の無料APIを使っている。他競技とデータ構造が根本的に違うため専用関数にしている)。
+export function getF1Data() {
+  return getSingleFile('f1.json')
+}
+
 // ホーム画面の「🏆 チャンピオンへの道」用、MLB/NBAのプレーオフまでの日数。
 // public/data/season-milestones.json を読む(scripts/fetch-season-milestones.mjsが1日1回更新)。
 export function getSeasonMilestones() {

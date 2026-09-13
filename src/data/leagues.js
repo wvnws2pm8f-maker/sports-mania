@@ -14,6 +14,8 @@ export const sports = [
   { id: 'soccer', name: 'サッカー', emoji: '⚽' },
   { id: 'nba', name: 'NBA', emoji: '🏀' },
   { id: 'mlb', name: 'MLB', emoji: '⚾' },
+  { id: 'nfl', name: 'NFL', emoji: '🏈' },
+  { id: 'f1', name: 'F1', emoji: '🏎️' },
   { id: 'boxing', name: 'ボクシング', emoji: '🥊' }
 ]
 
@@ -22,5 +24,6 @@ export const sports = [
 export const allLeagueTargets = [
   ...soccerLeagues.map((l) => ({ sportPath: 'soccer', leaguePath: l.id, leagueName: l.name })),
   { sportPath: 'basketball', leaguePath: 'nba', leagueName: 'NBA' },
-  { sportPath: 'baseball', leaguePath: 'mlb', leagueName: 'MLB' }
+  { sportPath: 'baseball', leaguePath: 'mlb', leagueName: 'MLB' },
+  { sportPath: 'football', leaguePath: 'nfl', leagueName: 'NFL' }
 ]

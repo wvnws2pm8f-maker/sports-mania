@@ -110,7 +110,7 @@ async function translateArticles(articles) {
 }
 
 async function main() {
-  const bySport = { soccer: new Map(), basketball: new Map(), baseball: new Map() }
+  const bySport = { soccer: new Map(), basketball: new Map(), baseball: new Map(), football: new Map() }
 
   for (const leaguePath of SOCCER_LEAGUES) {
     try {
@@ -124,7 +124,8 @@ async function main() {
 
   for (const [sportPath, leaguePath] of [
     ['basketball', 'nba'],
-    ['baseball', 'mlb']
+    ['baseball', 'mlb'],
+    ['football', 'nfl']
   ]) {
     try {
       const articles = await fetchNewsFor(sportPath, leaguePath)
