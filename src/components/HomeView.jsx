@@ -232,8 +232,77 @@ export default function HomeView() {
         ? [...(boxingData.results || [])].reverse().find((r) => (r.fighters || []).includes(p.name))
         : null
     const profile = p.sportPath === 'boxing' ? boxerProfiles.boxers.find((b) => b.name === p.name) || null : null
-    return { ...p, relatedNews, nextFight, lastResult, profile, stats: playerStats[p.playerId] || null }
+    // 選手個人の「次の試合」はチームの次戦と同じ(ボクシング以外)。推しチームには入れていない
+    // 選手だけ推し登録しているケースをカバーするため、ここでもチームの次戦を拾っておく。
+    const league =
+      p.sportPath !== 'boxing' ? (leaguesData || []).find((l) => l.sportPath === p.sportPath && l.leaguePath === p.leaguePath) : null
+    const nextGame =
+      p.sportPath !== 'boxing'
+        ? (league?.games || [])
+            .filter((g) => !g.isFinal && (g.home.id === p.teamId || g.away.id === p.teamId))
+            .sort((a, b) => new Date(a.date) - new Date(b.date))[0]
+        : null
+    return { ...p, relatedNews, nextFight, nextGame, lastResult, profile, stats: playerStats[p.playerId] || null }
   })
+
+  // 「見逃したくない試合」: 推しチーム・推し選手(のチーム)・推しボクサーの次の試合/試合を
+  // 1つのリストにまとめ、開催が近い順に並べて日数カウントダウン付きで見せる
+  // (2026-09-15、「アナウンス・あと何日か、をホームに欲しい」との要望で追加)。
+  const myUpcomingEventsMap = new Map() // key(sportPath-teamId or boxer-name) -> event
+  for (const t of favTeamsWithData) {
+    if (!t.nextGame) continue
+    const isHome = t.nextGame.home.id === t.teamId
+    const opponent = isHome ? t.nextGame.away : t.nextGame.home
+    myUpcomingEventsMap.set(`team-${t.sportPath}-${t.teamId}`, {
+      key: `team-${t.sportPath}-${t.teamId}`,
+      kind: 'team',
+      logo: t.logo,
+      title: t.name,
+      description: `${isHome ? 'vs' : '@'} ${opponent.team}`,
+      date: t.nextGame.date,
+      sportPath: t.sportPath,
+      leaguePath: t.leaguePath,
+      teamId: t.teamId
+    })
+  }
+  for (const p of favPlayersWithNews) {
+    if (p.sportPath === 'boxing') {
+      if (!p.nextFight) continue
+      myUpcomingEventsMap.set(`boxer-${p.name}`, {
+        key: `boxer-${p.name}`,
+        kind: 'boxer',
+        logo: p.headshot,
+        title: p.name,
+        description: p.nextFight.cardName,
+        date: p.nextFight.date
+      })
+    } else {
+      if (!p.nextGame) continue
+      const teamKey = `team-${p.sportPath}-${p.teamId}`
+      if (myUpcomingEventsMap.has(teamKey)) continue // 同じチームを既に推し登録していれば重複させない
+      const isHome = p.nextGame.home.id === p.teamId
+      const opponent = isHome ? p.nextGame.away : p.nextGame.home
+      myUpcomingEventsMap.set(`player-${p.sportPath}-${p.playerId}`, {
+        key: `player-${p.sportPath}-${p.playerId}`,
+        kind: 'player',
+        logo: p.headshot || p.teamLogo,
+        title: `${p.name}(${p.teamName})`,
+        description: `${isHome ? 'vs' : '@'} ${opponent.team}`,
+        date: p.nextGame.date,
+        sportPath: p.sportPath,
+        leaguePath: p.leaguePath,
+        teamId: p.teamId
+      })
+    }
+  }
+  const myUpcomingEvents = [...myUpcomingEventsMap.values()].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 6)
+
+  function countdownLabel(iso) {
+    const d = daysUntil(iso)
+    if (d === 0) return '今日!'
+    if (d === 1) return '明日'
+    return `あと${d}日`
+  }
 
   const notableTeaser =
     notableGames && notableGames.length > 0
@@ -436,6 +505,38 @@ export default function HomeView() {
           </>
         )}
       </section>
+
+      {myUpcomingEvents.length > 0 && (
+        <section className="home-section">
+          <h2 className="home-section-title">📅 見逃せない試合</h2>
+          <div className="upcoming-event-list">
+            {myUpcomingEvents.map((ev) => {
+              const isSoon = daysUntil(ev.date) <= 1
+              const Tag = ev.kind === 'boxer' ? 'div' : 'button'
+              return (
+                <Tag
+                  key={ev.key}
+                  type={ev.kind === 'boxer' ? undefined : 'button'}
+                  className="upcoming-event-card"
+                  onClick={ev.kind === 'boxer' ? undefined : () => openTeam(ev.sportPath, ev.leaguePath, ev.teamId)}
+                >
+                  {ev.logo ? (
+                    <img className="upcoming-event-logo" src={ev.logo} alt="" />
+                  ) : (
+                    <div className="upcoming-event-logo upcoming-event-logo-fallback">🥊</div>
+                  )}
+                  <div className="upcoming-event-body">
+                    <div className="upcoming-event-title">{ev.title}</div>
+                    <div className="upcoming-event-desc">{ev.description}</div>
+                    <div className="upcoming-event-date">{formatDate(ev.date)}</div>
+                  </div>
+                  <div className={`upcoming-event-countdown ${isSoon ? 'is-soon' : ''}`}>{countdownLabel(ev.date)}</div>
+                </Tag>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       <div className="digest-row">
         <button type="button" className={`digest-tile ${expanded === 'notable' ? 'is-active' : ''}`} onClick={() => toggle('notable')}>

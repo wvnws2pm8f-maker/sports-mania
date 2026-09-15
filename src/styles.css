@@ -984,6 +984,87 @@ img {
   cursor: pointer;
 }
 
+/* ---------- 見逃せない試合(ホーム) ---------- */
+.upcoming-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upcoming-event-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: #10192c;
+  border: 1px solid #1c2740;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.upcoming-event-logo {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.upcoming-event-logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: #241a10;
+}
+
+.upcoming-event-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.upcoming-event-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upcoming-event-desc {
+  font-size: 12px;
+  color: #a9b6d6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upcoming-event-date {
+  font-size: 11px;
+  color: #6c7a99;
+  margin-top: 2px;
+}
+
+.upcoming-event-countdown {
+  flex: 0 0 auto;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #9db4ff;
+  background: #1a2544;
+  border-radius: 10px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.upcoming-event-countdown.is-soon {
+  color: #0b1220;
+  background: #ffd166;
+}
+
 .digest-row {
   display: flex;
   gap: 10px;
