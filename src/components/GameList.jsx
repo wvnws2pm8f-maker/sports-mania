@@ -1,15 +1,9 @@
+import { highlightSearchUrl } from '../utils/highlightLink.js'
+
 function formatDate(iso) {
   const d = new Date(iso)
   const w = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
   return `${d.getMonth() + 1}/${d.getDate()}(${w}) ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
-// 試合ごとのハイライト動画を確実に一意に特定できる無料APIは無いため、
-// 「ハイライト動画そのものへの埋め込み」ではなく「YouTube内で検索した結果に飛ぶ」方式にする
-// (推しボクサーのX/ニュース検索リンクと同じ考え方)。チーム名は英語表記なので検索精度は十分実用的。
-function highlightSearchUrl(g) {
-  const q = `${g.away.team} vs ${g.home.team} highlights`
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`
 }
 
 export default function GameList({ games }) {
@@ -45,7 +39,7 @@ export default function GameList({ games }) {
           {g.isFinal && (
             <a
               className="highlight-link"
-              href={highlightSearchUrl(g)}
+              href={highlightSearchUrl(`${g.away.team} vs ${g.home.team} highlights`)}
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}

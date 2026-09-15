@@ -46,6 +46,13 @@ jobs:
         run: node scripts/fetch-f1-data.mjs
         continue-on-error: true
 
+      # NFLは週(Week)単位で結果を見たいという要望があり、通常のスコアボード(直近数日分のみ)
+      # とは別にレギュラーシーズン全18週分をまとめて取得する。18回のAPI呼び出しがあるが、
+      # ESPNの公開APIには明示的なレート制限が見つかっておらず、他の取得と同じ頻度で問題ない。
+      - name: Fetch NFL week-by-week data
+        run: node scripts/fetch-nfl-weeks.mjs
+        continue-on-error: true
+
       - name: Commit and push if changed
         id: commit
         run: |

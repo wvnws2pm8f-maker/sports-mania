@@ -5,9 +5,10 @@ import { articles } from '../data/articles.js'
 import { isFavoriteBoxer, toggleFavoriteBoxer, getFavoritePlayers } from '../utils/favorites.js'
 import ArticleList from './ArticleList.jsx'
 import SearchLinks from './SearchLinks.jsx'
+import { highlightSearchUrl } from '../utils/highlightLink.js'
 
 const boxingArticles = articles.filter((a) => a.sport === 'boxing')
-const SUB_TABS = ['試合予定', '読み物']
+const SUB_TABS = ['試合予定', '試合結果', '読み物']
 
 function formatDate(iso) {
   const d = new Date(iso)
@@ -105,6 +106,9 @@ export default function BoxingView() {
                 {favBoxers.map((p) => {
                   const profile = findProfile(p.name)
                   const nextFight = boxingData.fights.find((f) => (f.fighters || []).includes(p.name))
+                  const lastResult = [...(boxingData.results || [])]
+                    .reverse()
+                    .find((r) => (r.fighters || []).includes(p.name))
                   return (
                     <div key={p.name} className="boxer-profile-card">
                       <div className="boxer-profile-name">{p.name}</div>
@@ -134,6 +138,11 @@ export default function BoxingView() {
                       ) : (
                         <div className="muted">次戦は未発表です</div>
                       )}
+                      {lastResult && (
+                        <div className="boxer-profile-line">
+                          🏆 前戦: {formatDate(lastResult.date)} {lastResult.winner}が{lastResult.method}で勝利
+                        </div>
+                      )}
                       <SearchLinks name={p.name} />
                     </div>
                   )
@@ -161,6 +170,45 @@ export default function BoxingView() {
                 {f.broadcast && <div className="boxing-card-broadcast">📺 {f.broadcast}</div>}
               </div>
             ))}
+          </div>
+        </>
+      )}
+
+      {subTab === '試合結果' && (
+        <>
+          <p className="muted boxing-note">
+            ※ ボクシングは自動データ更新に対応する無料APIが無いため、手動で更新しています（最終更新: {boxingData.updatedAt}）
+          </p>
+          <div className="game-list">
+            {[...(boxingData.results || [])].reverse().map((r, i) => (
+              <div key={i} className="game-card boxing-card">
+                <div className="game-card-status">{formatDate(r.date)}</div>
+                <div className="boxing-card-title">{r.cardName}</div>
+                {r.fighters && r.fighters.length > 0 && (
+                  <div className="fighter-chip-row">
+                    {r.fighters.map((name) => (
+                      <FighterChip key={name} name={name} onToggle={refreshFavBoxers} />
+                    ))}
+                  </div>
+                )}
+                <div className="boxing-result-line">
+                  🏆 {r.winner}が{r.method}で勝利
+                </div>
+                {r.note && <div className="boxing-result-note">{r.note}</div>}
+                <div className="boxing-card-venue">📍 {r.venue}</div>
+                <a
+                  className="highlight-link"
+                  href={highlightSearchUrl(`${r.fighters?.join(' vs ') || r.cardName} highlights`)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  🎥 ハイライトを見る
+                </a>
+              </div>
+            ))}
+            {(!boxingData.results || boxingData.results.length === 0) && (
+              <p className="muted">試合結果はまだありません</p>
+            )}
           </div>
         </>
       )}

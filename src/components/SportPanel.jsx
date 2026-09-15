@@ -8,8 +8,10 @@ import TeamDetail from './TeamDetail.jsx'
 
 const SUB_TABS = ['順位表', '試合', '読み物']
 
-// サッカー/NBA/MLB共通の画面。順位表・試合・読み物のサブタブを持つ。
-export default function SportPanel({ sportPath, leaguePath, articles }) {
+// サッカー/NBA/MLB/NFL共通の画面。順位表・試合・読み物のサブタブを持つ。
+// renderGamesTab: 「試合」タブの中身を差し替えたい場合に渡す(例: NFLの週別表示)。
+// 省略時は従来どおり素のGameListを表示する。
+export default function SportPanel({ sportPath, leaguePath, articles, renderGamesTab }) {
   const [subTab, setSubTab] = useState('順位表')
   const [standings, setStandings] = useState(null)
   const [games, setGames] = useState(null)
@@ -145,7 +147,11 @@ export default function SportPanel({ sportPath, leaguePath, articles }) {
       )}
 
       {subTab === '順位表' && !error && (loading && !standings ? <p className="muted">よみこみちゅう…</p> : <StandingsTable groups={standings} variant={sportPath === 'soccer' ? 'soccer' : 'us'} onSelectTeam={setSelectedTeam} />)}
-      {subTab === '試合' && !error && (loading && !games ? <p className="muted">よみこみちゅう…</p> : <GameList games={games} />)}
+      {subTab === '試合' && !error && renderGamesTab && renderGamesTab()}
+      {subTab === '試合' &&
+        !error &&
+        !renderGamesTab &&
+        (loading && !games ? <p className="muted">よみこみちゅう…</p> : <GameList games={games} />)}
       {subTab === '読み物' && <ArticleList articles={articles} />}
     </div>
   )

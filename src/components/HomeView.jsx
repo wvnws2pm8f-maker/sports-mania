@@ -227,8 +227,12 @@ export default function HomeView() {
       p.sportPath === 'boxing'
         ? (boxingData.fights || []).find((f) => f.date >= today && (f.fighters || []).includes(p.name))
         : null
+    const lastResult =
+      p.sportPath === 'boxing'
+        ? [...(boxingData.results || [])].reverse().find((r) => (r.fighters || []).includes(p.name))
+        : null
     const profile = p.sportPath === 'boxing' ? boxerProfiles.boxers.find((b) => b.name === p.name) || null : null
-    return { ...p, relatedNews, nextFight, profile, stats: playerStats[p.playerId] || null }
+    return { ...p, relatedNews, nextFight, lastResult, profile, stats: playerStats[p.playerId] || null }
   })
 
   const notableTeaser =
@@ -380,6 +384,11 @@ export default function HomeView() {
                           </div>
                         ) : (
                           <p className="muted">次戦は未発表です</p>
+                        )}
+                        {p.lastResult && (
+                          <div className="boxer-profile-line">
+                            🏆 前戦: {formatDate(p.lastResult.date)} {p.lastResult.winner}が{p.lastResult.method}で勝利
+                          </div>
                         )}
                         <SearchLinks name={p.name} />
                       </>

@@ -1,28 +1,52 @@
 {
-  "updatedAt": "2026-09-11",
-  "note": "ボクシングは安定した無料APIが無いため手動で更新しています(2026-09-11、Web検索で1件ずつ実在確認して全面的に修正)。「ボクシングの日程を更新して」と言ってもらえれば最新情報に更新します。",
-  "fights": [
+  "updatedAt": "2026-09-15",
+  "note": "ボクシングは安定した無料APIが無いため手動で更新しています(Web検索で1件ずつ実在・結果を確認)。「ボクシングの日程/結果を更新して」と言ってもらえれば最新情報に更新します。",
+  "results": [
+    {
+      "date": "2026-09-02",
+      "venue": "横浜BUNTAI",
+      "cardName": "吉良大弥 vs カルロス・カニサレス（WBA世界ライトフライ級王座決定戦）",
+      "fighters": ["吉良大弥", "カルロス・カニサレス"],
+      "winner": "吉良大弥",
+      "method": "TKO(7回38秒)",
+      "note": "プロ5戦目での世界王座獲得は日本男子最速タイ記録"
+    },
+    {
+      "date": "2026-09-02",
+      "venue": "横浜BUNTAI",
+      "cardName": "石井武志 vs ウィルフレド・メンデス（WBA世界ミニマム級王座決定戦）",
+      "fighters": ["石井武志", "ウィルフレド・メンデス"],
+      "winner": "石井武志",
+      "method": "KO(1回1分5秒)",
+      "note": "世界戦・日本人最速KO記録(井上尚弥の1分10秒を更新)、世界初挑戦での戴冠"
+    },
     {
       "date": "2026-09-11",
       "venue": "Frontwave Arena, Oceanside",
       "cardName": "Giovani Santillan vs Abass Baraou",
       "fighters": ["Giovani Santillan", "Abass Baraou"],
-      "broadcast": "ProBox TV"
+      "winner": "Abass Baraou",
+      "method": "判定(Majority Decision, 10回)"
     },
     {
       "date": "2026-09-12",
       "venue": "T-Mobile Arena, Las Vegas",
       "cardName": "Ryan Garcia vs Conor Benn（WBC世界ウェルター級王座）",
       "fighters": ["Ryan Garcia", "Conor Benn"],
-      "broadcast": "Paramount+ / DAZN PPV"
+      "winner": "Ryan Garcia",
+      "method": "TKO(2回1分25秒)",
+      "note": "王座初防衛"
     },
     {
       "date": "2026-09-12",
       "venue": "T-Mobile Arena, Las Vegas",
-      "cardName": "Jai Opetaia vs Noel Mikaelian（クルーザー級 Ring/Zuffa/WBC統一戦、Garcia-Bennの同一カード）",
+      "cardName": "Jai Opetaia vs Noel Mikaelian（クルーザー級 Ring/Zuffa統一戦）",
       "fighters": ["Jai Opetaia", "Noel Mikaelian"],
-      "broadcast": "Paramount+ / DAZN PPV"
-    },
+      "winner": "Jai Opetaia",
+      "method": "TKO(9回)"
+    }
+  ],
+  "fights": [
     {
       "date": "2026-09-19",
       "venue": "Pechanga Arena, San Diego",
@@ -42,6 +66,20 @@
       "venue": "TOYOTA ARENA TOKYO",
       "cardName": "井上拓真 vs 那須川天心２（WBC世界バンタム級タイトルマッチ、10ヶ月ぶりの再戦）",
       "fighters": ["井上拓真", "那須川天心"],
+      "broadcast": "Prime Video（Prime Video Boxing 16、独占ライブ配信）"
+    },
+    {
+      "date": "2026-09-27",
+      "venue": "TOYOTA ARENA TOKYO",
+      "cardName": "西田凌佑 vs サム・グッドマン（IBF世界スーパーバンタム級暫定王座決定戦、井上拓真vs那須川天心と同一カード）",
+      "fighters": ["西田凌佑", "サム・グッドマン"],
+      "broadcast": "Prime Video（Prime Video Boxing 16、独占ライブ配信）"
+    },
+    {
+      "date": "2026-09-27",
+      "venue": "TOYOTA ARENA TOKYO",
+      "cardName": "坪井智也 vs リカルド・マラジカ（WBC世界スーパーフライ級王座決定戦、同一カード）",
+      "fighters": ["坪井智也", "リカルド・マラジカ"],
       "broadcast": "Prime Video（Prime Video Boxing 16、独占ライブ配信）"
     },
     {

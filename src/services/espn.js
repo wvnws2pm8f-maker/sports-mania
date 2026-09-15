@@ -83,6 +83,13 @@ export function getHotTeams() {
   return getSingleFile('hot-teams.json')
 }
 
+// NFLは週(Week 1, Week 2...)単位でシーズンが進む競技性のため、通常の日付範囲スコアボードとは別に
+// 全18週分をまとめて取得しておき、ユーザーが好きな週を選んで結果を見られるようにする。
+// public/data/football-nfl-weeks.json を読む(scripts/fetch-nfl-weeks.mjsが取得)。
+export function getNflWeeks() {
+  return getSingleFile('football-nfl-weeks.json')
+}
+
 // F1のドライバーズ/コンストラクターズ選手権・レースカレンダー。
 // public/data/f1.json を読む(scripts/fetch-f1-data.mjsが取得。ESPNではなくJolpica-F1という
 // F1専用の無料APIを使っている。他競技とデータ構造が根本的に違うため専用関数にしている)。
