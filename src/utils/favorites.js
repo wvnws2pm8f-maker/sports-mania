@@ -2,6 +2,7 @@
 // この端末(このブラウザ)のlocalStorageにだけ保存する(他の端末とは同期されない)。
 const TEAMS_KEY = 'sportsmania:favoriteTeams'
 const PLAYERS_KEY = 'sportsmania:favoritePlayers'
+const GAMES_KEY = 'sportsmania:favoriteGames'
 
 function readList(key) {
   try {
@@ -54,6 +55,29 @@ export function toggleFavoritePlayer(player) {
   if (idx >= 0) list.splice(idx, 1)
   else list.push(player)
   writeList(PLAYERS_KEY, list)
+  return idx < 0
+}
+
+// 「推しチーム/推し選手」だけでは、応援していないチーム同士の1試合だけを
+// 見逃したくない、というケースを拾えないため、試合そのものを個別に登録できるようにする
+// (2026-09-16の要望)。gameはESPNの試合一覧(GameList/NflWeeklyGames)からその場のデータを
+// スナップショットとして保存する(再取得すると終わった試合が消えてしまうため、
+// 表示に必要な情報はここに全部持たせておく)。
+// game: { sportPath, leaguePath, gameId, date, home: {id,team,logo}, away: {id,team,logo} }
+export function getFavoriteGames() {
+  return readList(GAMES_KEY)
+}
+
+export function isFavoriteGame(sportPath, gameId) {
+  return getFavoriteGames().some((g) => g.sportPath === sportPath && g.gameId === gameId)
+}
+
+export function toggleFavoriteGame(game) {
+  const list = getFavoriteGames()
+  const idx = list.findIndex((g) => g.sportPath === game.sportPath && g.gameId === game.gameId)
+  if (idx >= 0) list.splice(idx, 1)
+  else list.push(game)
+  writeList(GAMES_KEY, list)
   return idx < 0
 }
 

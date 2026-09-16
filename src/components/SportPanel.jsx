@@ -151,7 +151,7 @@ export default function SportPanel({ sportPath, leaguePath, articles, renderGame
       {subTab === '試合' &&
         !error &&
         !renderGamesTab &&
-        (loading && !games ? <p className="muted">よみこみちゅう…</p> : <GameList games={games} />)}
+        (loading && !games ? <p className="muted">よみこみちゅう…</p> : <GameList games={games} sportPath={sportPath} leaguePath={leaguePath} />)}
       {subTab === '読み物' && <ArticleList articles={articles} />}
     </div>
   )

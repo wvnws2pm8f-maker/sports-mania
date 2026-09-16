@@ -58,7 +58,7 @@ export default function NflWeeklyGames() {
           →
         </button>
       </div>
-      <GameList games={week?.games} />
+      <GameList games={week?.games} sportPath="football" leaguePath="nfl" />
     </div>
   )
 }

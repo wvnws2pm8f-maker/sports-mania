@@ -637,6 +637,14 @@ img {
   border-radius: 50%;
 }
 
+/* GameListの試合カードでは、ロスターカードのような画像オーバーレイではなく
+   ステータス行の右端にインラインで置きたいので絶対配置を打ち消す */
+.game-card-star {
+  position: static;
+  margin-left: auto;
+  background: none;
+}
+
 .team-detail-record {
   display: flex;
   flex-wrap: wrap;
@@ -1020,6 +1028,31 @@ img {
   justify-content: center;
   font-size: 18px;
   background: #241a10;
+}
+
+.upcoming-event-logo-pair {
+  display: flex;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  position: relative;
+}
+
+.upcoming-event-logo-small {
+  width: 24px;
+  height: 24px;
+  position: absolute;
+}
+
+.upcoming-event-logo-small:first-child {
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.upcoming-event-logo-small:last-child {
+  bottom: 0;
+  right: 0;
 }
 
 .upcoming-event-body {

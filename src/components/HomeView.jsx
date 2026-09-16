@@ -3,7 +3,7 @@ import { getNews, getStandings, getScoreboard, getSeasonMilestones, getTeamDetai
 import { allLeagueTargets } from '../data/leagues.js'
 import { rivalries } from '../data/rivalries.js'
 import { mlbPlayoffFormat, nbaPlayoffFormat, boxingTitleSystem } from '../data/championshipInfo.js'
-import { getFavoriteTeams, getFavoritePlayers } from '../utils/favorites.js'
+import { getFavoriteTeams, getFavoritePlayers, getFavoriteGames } from '../utils/favorites.js'
 import boxingData from '../data/boxingSchedule.json'
 import boxerProfiles from '../data/boxerProfiles.json'
 import TeamDetail from './TeamDetail.jsx'
@@ -67,6 +67,7 @@ export default function HomeView() {
   // マウント時に読み直せば最新の状態になる。
   const [favoriteTeams] = useState(() => getFavoriteTeams())
   const [favoritePlayers] = useState(() => getFavoritePlayers())
+  const [favoriteGames] = useState(() => getFavoriteGames())
   const [playerStats, setPlayerStats] = useState({}) // playerId -> stats(最新の個人成績)
 
   useEffect(() => {
@@ -295,6 +296,22 @@ export default function HomeView() {
       })
     }
   }
+  // 推しチーム/推し選手に関係なく個別にピン留めした試合(GameListの☆ボタンから登録)。
+  // 終了済みのものはリストが際限なく伸びないよう表示から外す(登録自体は残るので、
+  // 再度その試合が一覧に出た時に☆を消せば完全に削除できる)。
+  for (const g of favoriteGames) {
+    if (new Date(g.date).getTime() < Date.now() - 24 * 60 * 60 * 1000) continue
+    myUpcomingEventsMap.set(`game-${g.sportPath}-${g.gameId}`, {
+      key: `game-${g.sportPath}-${g.gameId}`,
+      kind: 'game',
+      awayLogo: g.away.logo,
+      homeLogo: g.home.logo,
+      title: `${g.away.team} vs ${g.home.team}`,
+      description: '',
+      date: g.date
+    })
+  }
+
   const myUpcomingEvents = [...myUpcomingEventsMap.values()].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 6)
 
   function countdownLabel(iso) {
@@ -512,22 +529,30 @@ export default function HomeView() {
           <div className="upcoming-event-list">
             {myUpcomingEvents.map((ev) => {
               const isSoon = daysUntil(ev.date) <= 1
-              const Tag = ev.kind === 'boxer' ? 'div' : 'button'
+              // 個別にピン留めした試合(kind: 'game')はどちらのチームのページに飛ぶべきか
+              // 決め打てないため、他の推しカードと違いタップ不可の情報表示のみにする
+              const isInteractive = ev.kind === 'team' || ev.kind === 'player'
+              const Tag = isInteractive ? 'button' : 'div'
               return (
                 <Tag
                   key={ev.key}
-                  type={ev.kind === 'boxer' ? undefined : 'button'}
+                  type={isInteractive ? 'button' : undefined}
                   className="upcoming-event-card"
-                  onClick={ev.kind === 'boxer' ? undefined : () => openTeam(ev.sportPath, ev.leaguePath, ev.teamId)}
+                  onClick={isInteractive ? () => openTeam(ev.sportPath, ev.leaguePath, ev.teamId) : undefined}
                 >
-                  {ev.logo ? (
+                  {ev.kind === 'game' ? (
+                    <div className="upcoming-event-logo-pair">
+                      {ev.awayLogo && <img className="upcoming-event-logo upcoming-event-logo-small" src={ev.awayLogo} alt="" />}
+                      {ev.homeLogo && <img className="upcoming-event-logo upcoming-event-logo-small" src={ev.homeLogo} alt="" />}
+                    </div>
+                  ) : ev.logo ? (
                     <img className="upcoming-event-logo" src={ev.logo} alt="" />
                   ) : (
                     <div className="upcoming-event-logo upcoming-event-logo-fallback">🥊</div>
                   )}
                   <div className="upcoming-event-body">
                     <div className="upcoming-event-title">{ev.title}</div>
-                    <div className="upcoming-event-desc">{ev.description}</div>
+                    {ev.description && <div className="upcoming-event-desc">{ev.description}</div>}
                     <div className="upcoming-event-date">{formatDate(ev.date)}</div>
                   </div>
                   <div className={`upcoming-event-countdown ${isSoon ? 'is-soon' : ''}`}>{countdownLabel(ev.date)}</div>
