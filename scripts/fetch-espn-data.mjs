@@ -15,15 +15,23 @@ function fmtDate(d) {
   return `${y}${m}${day}`
 }
 
-// 直近3日〜10日後までの試合を拾う(常に「今日だけ」だと閑散期に空になりがちなため)
-function scoreboardDateRange() {
+// 直近◯日前〜◯日後までの試合を拾う(常に「今日だけ」だと閑散期に空になりがちなため)。
+// リーグによって試合間隔の粗さが全く違うため、範囲を可変にできるようにしている。
+function scoreboardDateRange(daysBack = 3, daysForward = 10) {
   const now = new Date()
   const from = new Date(now)
-  from.setDate(from.getDate() - 3)
+  from.setDate(from.getDate() - daysBack)
   const to = new Date(now)
-  to.setDate(to.getDate() + 10)
+  to.setDate(to.getDate() + daysForward)
   return `${fmtDate(from)}-${fmtDate(to)}`
 }
+
+// チャンピオンズリーグ(新方式のリーグフェーズ)は1試合日から次の試合日まで
+// 約3〜4週間空くことがあり、既定の-3日/+10日の範囲では前回・次回どちらの試合も
+// 拾えず「試合が1件も無い」ように見えてしまっていた(2026-09-16、ユーザー指摘で発覚。
+// 実際には順位表の消化試合数が示す通り既に試合は行われていた)。
+// この競技だけ前後3週間分に広げて、間隔の粗さを吸収する。
+const SCOREBOARD_RANGE = { 'uefa.champions': [21, 21] }
 
 async function fetchJson(url) {
   const res = await fetch(url, { headers: { 'User-Agent': 'sports-mania-app/1.0 (data sync script)' } })
@@ -148,7 +156,8 @@ function normalizeScoreboard(data) {
 const STANDINGS_LEVEL = { mlb: 3, nba: 2, nfl: 3 }
 
 async function fetchLeague(sportPath, leaguePath) {
-  const dates = scoreboardDateRange()
+  const range = SCOREBOARD_RANGE[leaguePath]
+  const dates = range ? scoreboardDateRange(range[0], range[1]) : scoreboardDateRange()
   const level = STANDINGS_LEVEL[leaguePath]
   const standingsUrl = `${BASE}/v2/sports/${sportPath}/${leaguePath}/standings${level ? `?level=${level}` : ''}`
   const [standingsRaw, scoreboardRaw] = await Promise.all([

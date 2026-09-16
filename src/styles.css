@@ -1365,6 +1365,26 @@ img {
   margin-bottom: 4px;
 }
 
+.ucl-standings-mini {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ucl-standings-mini-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.ucl-standings-mini-team {
+  flex: 1 1 auto;
+  font-weight: 700;
+  color: #e8ecf7;
+}
+
 .streak-chip-team {
   font-weight: 700;
 }

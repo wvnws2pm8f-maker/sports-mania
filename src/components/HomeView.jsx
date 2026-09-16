@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getNews, getStandings, getScoreboard, getSeasonMilestones, getTeamDetail } from '../services/espn.js'
 import { allLeagueTargets } from '../data/leagues.js'
 import { rivalries } from '../data/rivalries.js'
-import { mlbPlayoffFormat, nbaPlayoffFormat, boxingTitleSystem } from '../data/championshipInfo.js'
+import { mlbPlayoffFormat, nbaPlayoffFormat, boxingTitleSystem, uclFormat } from '../data/championshipInfo.js'
 import { getFavoriteTeams, getFavoritePlayers, getFavoriteGames } from '../utils/favorites.js'
 import boxingData from '../data/boxingSchedule.json'
 import boxerProfiles from '../data/boxerProfiles.json'
@@ -204,6 +204,11 @@ export default function HomeView() {
       return race ? { ...race, leagueName: l.leagueName, sportPath: l.sportPath, leaguePath: l.leaguePath } : null
     })
     .filter(Boolean)
+
+  // チャンピオンズリーグは降格が無い単一リーグ表(新方式)なので、優勝争い/残留争いではなく
+  // 現在の暫定順位(直接ラウンド16=1〜8位、プレーオフ圏=9〜24位、敗退圏=25位以下)を見せる
+  const uclLeague = (leaguesData || []).find((l) => l.sportPath === 'soccer' && l.leaguePath === 'uefa.champions')
+  const uclTopRows = uclLeague?.standings?.[0]?.rows?.slice(0, 8) || []
 
   const mlbDays = milestones?.mlb ? (milestones.mlb.inPostseason ? null : daysUntil(milestones.mlb.postseasonStart)) : null
   const nbaMilestone = milestones?.nba?.nextMilestone
@@ -676,6 +681,33 @@ export default function HomeView() {
                     )}
                   </div>
                 ))}
+              </div>
+            </>
+          )}
+
+          {uclTopRows.length > 0 && (
+            <>
+              <div className="home-subsection-title">⚽ チャンピオンズリーグとは</div>
+              <div className="title-explainer-card">
+                <ul className="playoff-format-list">
+                  {uclFormat.rounds.map((r) => (
+                    <li key={r.name}>
+                      {r.name}: {r.format}
+                    </li>
+                  ))}
+                </ul>
+                <div className="playoff-format-tip">{uclFormat.tip}</div>
+                <div className="home-subsection-title">現在の暫定順位(1〜8位・ラウンド16直接進出圏)</div>
+                <div className="ucl-standings-mini">
+                  {uclTopRows.map((r, i) => (
+                    <div key={r.id} className="ucl-standings-mini-row">
+                      <span className="col-rank">{i + 1}</span>
+                      {r.logo && <img className="team-logo" src={r.logo} alt="" />}
+                      <span className="ucl-standings-mini-team">{r.team}</span>
+                      <span className="col-strong">{r.points}pt</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </>
           )}
