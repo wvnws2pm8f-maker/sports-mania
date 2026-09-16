@@ -540,11 +540,14 @@ export default function HomeView() {
                   className="upcoming-event-card"
                   onClick={isInteractive ? () => openTeam(ev.sportPath, ev.leaguePath, ev.teamId) : undefined}
                 >
-                  {ev.kind === 'game' ? (
+                  {ev.kind === 'game' && (ev.awayLogo || ev.homeLogo) ? (
                     <div className="upcoming-event-logo-pair">
                       {ev.awayLogo && <img className="upcoming-event-logo upcoming-event-logo-small" src={ev.awayLogo} alt="" />}
                       {ev.homeLogo && <img className="upcoming-event-logo upcoming-event-logo-small" src={ev.homeLogo} alt="" />}
                     </div>
+                  ) : ev.kind === 'game' ? (
+                    // ボクシングのピン留め(ロゴが無い)はフォールバック絵文字にする
+                    <div className="upcoming-event-logo upcoming-event-logo-fallback">🥊</div>
                   ) : ev.logo ? (
                     <img className="upcoming-event-logo" src={ev.logo} alt="" />
                   ) : (

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import boxingData from '../data/boxingSchedule.json'
 import boxerProfiles from '../data/boxerProfiles.json'
 import { articles } from '../data/articles.js'
-import { isFavoriteBoxer, toggleFavoriteBoxer, getFavoritePlayers } from '../utils/favorites.js'
+import { isFavoriteBoxer, toggleFavoriteBoxer, getFavoritePlayers, isFavoriteGame, toggleFavoriteGame } from '../utils/favorites.js'
 import ArticleList from './ArticleList.jsx'
 import SearchLinks from './SearchLinks.jsx'
 import { highlightSearchUrl } from '../utils/highlightLink.js'
@@ -39,6 +39,37 @@ function FighterChip({ name, onToggle }) {
       }}
     >
       {fav ? '★' : '☆'} {name}
+    </button>
+  )
+}
+
+// 「見逃せない試合」への個別ピン留め(サッカー/NBA/MLB/NFLのGameList.jsxと同じ発想)。
+// ボクシングにはESPNのような試合IDが無いため、日付+カード名で代わりのIDを作る。
+// どちらのボクサーも推し登録していなくても、この1試合だけ見逃したくない場合に使う
+// (2026-09-16、「ボクシングの試合にも反映してほしい」との要望で追加)。
+function FightPinStar({ f }) {
+  const gameId = `${f.date}-${f.cardName}`
+  const [fav, setFav] = useState(() => isFavoriteGame('boxing', gameId))
+  const fighters = f.fighters || []
+  return (
+    <button
+      type="button"
+      className={`favorite-star favorite-star-small game-card-star ${fav ? 'is-active' : ''}`}
+      onClick={() =>
+        setFav(
+          toggleFavoriteGame({
+            sportPath: 'boxing',
+            leaguePath: null,
+            gameId,
+            date: f.date,
+            away: { id: fighters[0] || '', team: fighters[0] || f.cardName, logo: '' },
+            home: { id: fighters[1] || '', team: fighters[1] || '', logo: '' }
+          })
+        )
+      }
+      aria-label="見逃せない試合に登録"
+    >
+      {fav ? '★' : '☆'}
     </button>
   )
 }
@@ -157,7 +188,10 @@ export default function BoxingView() {
           <div className="game-list">
             {boxingData.fights.map((f, i) => (
               <div key={i} className="game-card boxing-card">
-                <div className="game-card-status">{formatDate(f.date)}</div>
+                <div className="game-card-status">
+                  {formatDate(f.date)}
+                  <FightPinStar f={f} />
+                </div>
                 <div className="boxing-card-title">{f.cardName}</div>
                 {f.fighters && f.fighters.length > 0 && (
                   <div className="fighter-chip-row">
