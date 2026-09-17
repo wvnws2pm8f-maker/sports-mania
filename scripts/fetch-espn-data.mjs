@@ -182,13 +182,18 @@ async function main() {
       console.log(`ok: ${key} (standings groups=${data.standings.length}, games=${data.games.length})`)
       results.push({ key, ok: true })
     } catch (err) {
-      console.error(`FAILED: ${key}: ${err.message}`)
+      // 通常のconsole.errorだけだとGitHub Actionsの実行ログを見ないと原因が分からず、
+      // ログ閲覧には管理者権限が要る(このプロジェクトでは開発者側から見れないことがある)。
+      // ::error::形式にしておくと、ログを開かなくてもAnnotations(公開APIから取得可能)に
+      // 実際のエラー内容が出るようになる(2026-09-17、原因調査のため追加)。
+      console.log(`::error::FAILED ${key}: ${err.message}`)
       results.push({ key, ok: false, error: err.message })
     }
   }
   const failed = results.filter((r) => !r.ok)
   if (failed.length === results.length) {
     // 全滅した場合だけビルド/コミットを失敗させる(一部リーグの不調では失敗させない)
+    console.log(`::error::全リーグのデータ取得に失敗しました: ${failed.map((f) => `${f.key}=${f.error}`).join(' | ')}`)
     throw new Error('全リーグのデータ取得に失敗しました')
   }
   if (failed.length > 0) {
