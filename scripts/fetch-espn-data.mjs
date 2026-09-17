@@ -8,22 +8,34 @@ import { TARGETS } from './leagues.mjs'
 
 const BASE = 'https://site.api.espn.com/apis'
 
-function fmtDate(d) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}${m}${day}`
-}
-
 // 直近◯日前〜◯日後までの試合を拾う(常に「今日だけ」だと閑散期に空になりがちなため)。
 // リーグによって試合間隔の粗さが全く違うため、範囲を可変にできるようにしている。
-function scoreboardDateRange(daysBack = 3, daysForward = 10) {
+//
+// 【重要・2026-09-15にESPN側の仕様変更で発覚】以前は dates=YYYYMMDD-YYYYMMDD という
+// 範囲指定が使えたが、ある時点からESPNがこの「範囲」形式のクエリを一律400エラーで
+// 拒否するようになった(世界中の他プロジェクトでも同時多発的に報告されている既知の変更で、
+// このアプリだけの問題ではない)。単一日付(dates=20260916)や月単位(dates=202609)の
+// クエリはまだ通るため、範囲を「月」単位に分割し、それぞれ取得してから
+// 実際に欲しい期間だけに絞り込む方式に変更した。
+function dateWindow(daysBack, daysForward) {
   const now = new Date()
   const from = new Date(now)
   from.setDate(from.getDate() - daysBack)
   const to = new Date(now)
   to.setDate(to.getDate() + daysForward)
-  return `${fmtDate(from)}-${fmtDate(to)}`
+  return { from, to }
+}
+
+// [from, to]区間にまたがる年月(YYYYMM)を重複無く列挙する
+function monthsInWindow(from, to) {
+  const months = []
+  const cur = new Date(from.getFullYear(), from.getMonth(), 1)
+  const last = new Date(to.getFullYear(), to.getMonth(), 1)
+  while (cur <= last) {
+    months.push(`${cur.getFullYear()}${String(cur.getMonth() + 1).padStart(2, '0')}`)
+    cur.setMonth(cur.getMonth() + 1)
+  }
+  return months
 }
 
 // チャンピオンズリーグ(新方式のリーグフェーズ)は1試合日から次の試合日まで
@@ -155,18 +167,40 @@ function normalizeScoreboard(data) {
 // 一般的な慣習なのでlevel=3にする(2026-09-13、NFL追加時)。
 const STANDINGS_LEVEL = { mlb: 3, nba: 2, nfl: 3 }
 
+// 月ごとに分割してscoreboardを取得し、実際に欲しい[from, to]の範囲だけに絞り込んで返す。
+async function fetchScoreboardWindow(sportPath, leaguePath, daysBack, daysForward) {
+  const { from, to } = dateWindow(daysBack, daysForward)
+  const months = monthsInWindow(from, to)
+  const results = await Promise.all(
+    months.map((ym) => fetchJson(`${BASE}/site/v2/sports/${sportPath}/${leaguePath}/scoreboard?dates=${ym}`))
+  )
+  const byId = new Map()
+  for (const data of results) {
+    for (const ev of normalizeScoreboard(data)) {
+      byId.set(ev.id, ev)
+    }
+  }
+  const fromTime = from.getTime()
+  const toTime = to.getTime()
+  return [...byId.values()]
+    .filter((ev) => {
+      const t = new Date(ev.date).getTime()
+      return t >= fromTime && t <= toTime
+    })
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+}
+
 async function fetchLeague(sportPath, leaguePath) {
-  const range = SCOREBOARD_RANGE[leaguePath]
-  const dates = range ? scoreboardDateRange(range[0], range[1]) : scoreboardDateRange()
+  const range = SCOREBOARD_RANGE[leaguePath] || [3, 10]
   const level = STANDINGS_LEVEL[leaguePath]
   const standingsUrl = `${BASE}/v2/sports/${sportPath}/${leaguePath}/standings${level ? `?level=${level}` : ''}`
-  const [standingsRaw, scoreboardRaw] = await Promise.all([
+  const [standingsRaw, games] = await Promise.all([
     fetchJson(standingsUrl),
-    fetchJson(`${BASE}/site/v2/sports/${sportPath}/${leaguePath}/scoreboard?dates=${dates}`)
+    fetchScoreboardWindow(sportPath, leaguePath, range[0], range[1])
   ])
   return {
     standings: normalizeStandings(standingsRaw),
-    games: normalizeScoreboard(scoreboardRaw),
+    games,
     updatedAt: new Date().toISOString()
   }
 }
