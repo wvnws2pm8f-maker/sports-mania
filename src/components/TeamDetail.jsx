@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getTeamDetail, getNews } from '../services/espn.js'
 import { isFavoriteTeam, toggleFavoriteTeam, isFavoritePlayer, toggleFavoritePlayer } from '../utils/favorites.js'
 import venueGuides from '../data/venueGuides.json'
+import GameDetail from './GameDetail.jsx'
 
 function formatDate(iso) {
   const d = new Date(iso)
@@ -40,6 +41,7 @@ export default function TeamDetail({ sportPath, leaguePath, teamId, standingsRow
   const [favPlayerIds, setFavPlayerIds] = useState([])
   const [news, setNews] = useState(null)
   const [showVenueGuide, setShowVenueGuide] = useState(false)
+  const [selectedGame, setSelectedGame] = useState(null)
 
   // 現地観戦ガイドはボクサープロフィール等と同じく、Web検索で裏取りした内容を
   // src/data/venueGuides.jsonに手動でまとめている(自動更新できる情報ではないため)。
@@ -109,6 +111,10 @@ export default function TeamDetail({ sportPath, leaguePath, teamId, standingsRow
       teamLogo
     })
     setFavPlayerIds((prev) => (nowFav ? [...prev, p.id] : prev.filter((id) => id !== p.id)))
+  }
+
+  if (selectedGame) {
+    return <GameDetail sportPath={sportPath} leaguePath={leaguePath} game={selectedGame} onBack={() => setSelectedGame(null)} />
   }
 
   return (
@@ -238,7 +244,11 @@ export default function TeamDetail({ sportPath, leaguePath, teamId, standingsRow
             const opponent = isHome ? g.away : g.home
             const selfSide = isHome ? g.home : g.away
             return (
-              <div key={g.id} className={`team-game-row ${g.isLive ? 'is-live' : ''}`}>
+              <div
+                key={g.id}
+                className={`team-game-row ${g.isLive ? 'is-live' : ''} ${g.isFinal ? 'is-clickable' : ''}`}
+                onClick={g.isFinal ? () => setSelectedGame(g) : undefined}
+              >
                 <span className="team-game-date">{g.isFinal || g.isLive ? g.statusDetail : formatDate(g.date)}</span>
                 <span>{isHome ? 'vs' : '@'}</span>
                 {opponent.logo && <img className="team-logo" src={opponent.logo} alt="" />}
@@ -248,6 +258,7 @@ export default function TeamDetail({ sportPath, leaguePath, teamId, standingsRow
                     {selfSide.score}-{opponent.score}
                   </span>
                 )}
+                {g.isFinal && <span className="team-game-detail-hint">📋</span>}
               </div>
             )
           })}

@@ -6,6 +6,11 @@ const nflArticles = articles.filter((a) => a.sport === 'nfl')
 
 export default function NFLView() {
   return (
-    <SportPanel sportPath="football" leaguePath="nfl" articles={nflArticles} renderGamesTab={() => <NflWeeklyGames />} />
+    <SportPanel
+      sportPath="football"
+      leaguePath="nfl"
+      articles={nflArticles}
+      renderGamesTab={({ onSelectGame }) => <NflWeeklyGames onSelectGame={onSelectGame} />}
+    />
   )
 }

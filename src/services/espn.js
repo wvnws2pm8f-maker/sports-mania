@@ -90,6 +90,15 @@ export function getNflWeeks() {
   return getSingleFile('football-nfl-weeks.json')
 }
 
+// 試合詳細(得点者・出場選手など)。public/data/summaries/<sportPath>-<leaguePath>.json を読み、
+// 該当試合IDのぶんだけ返す(scripts/fetch-game-summaries.mjsが直近終了した試合だけ書き出す)。
+// 該当データが無い(未終了の試合、取得失敗、対象外の期間など)場合はnullを返す。
+export function getGameSummary(sportPath, leaguePath, gameId) {
+  return getSingleFile(`summaries/${sportPath}-${leaguePath}.json`)
+    .then((d) => d.games?.[gameId] || null)
+    .catch(() => null)
+}
+
 // F1のドライバーズ/コンストラクターズ選手権・レースカレンダー。
 // public/data/f1.json を読む(scripts/fetch-f1-data.mjsが取得。ESPNではなくJolpica-F1という
 // F1専用の無料APIを使っている。他競技とデータ構造が根本的に違うため専用関数にしている)。

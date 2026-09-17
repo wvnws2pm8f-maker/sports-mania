@@ -5,6 +5,7 @@ import StandingsTable from './StandingsTable.jsx'
 import GameList from './GameList.jsx'
 import ArticleList from './ArticleList.jsx'
 import TeamDetail from './TeamDetail.jsx'
+import GameDetail from './GameDetail.jsx'
 
 const SUB_TABS = ['順位表', '試合', '読み物']
 
@@ -19,6 +20,7 @@ export default function SportPanel({ sportPath, leaguePath, articles, renderGame
   const [error, setError] = useState(null)
   const [updatedAt, setUpdatedAt] = useState(null)
   const [selectedTeam, setSelectedTeam] = useState(null)
+  const [selectedGame, setSelectedGame] = useState(null)
   const [hotTeamsAll, setHotTeamsAll] = useState(null)
 
   const load = useCallback(
@@ -66,6 +68,14 @@ export default function SportPanel({ sportPath, leaguePath, articles, renderGame
   function selectTeamById(teamId) {
     const row = standings?.flatMap((g) => g.rows).find((r) => r.id === teamId)
     if (row) setSelectedTeam(row)
+  }
+
+  if (selectedGame) {
+    return (
+      <div className="sport-panel">
+        <GameDetail sportPath={sportPath} leaguePath={leaguePath} game={selectedGame} onBack={() => setSelectedGame(null)} />
+      </div>
+    )
   }
 
   if (selectedTeam) {
@@ -147,11 +157,15 @@ export default function SportPanel({ sportPath, leaguePath, articles, renderGame
       )}
 
       {subTab === '順位表' && !error && (loading && !standings ? <p className="muted">よみこみちゅう…</p> : <StandingsTable groups={standings} variant={sportPath === 'soccer' ? 'soccer' : 'us'} onSelectTeam={setSelectedTeam} />)}
-      {subTab === '試合' && !error && renderGamesTab && renderGamesTab()}
+      {subTab === '試合' && !error && renderGamesTab && renderGamesTab({ onSelectGame: setSelectedGame })}
       {subTab === '試合' &&
         !error &&
         !renderGamesTab &&
-        (loading && !games ? <p className="muted">よみこみちゅう…</p> : <GameList games={games} sportPath={sportPath} leaguePath={leaguePath} />)}
+        (loading && !games ? (
+          <p className="muted">よみこみちゅう…</p>
+        ) : (
+          <GameList games={games} sportPath={sportPath} leaguePath={leaguePath} onSelectGame={setSelectedGame} />
+        ))}
       {subTab === '読み物' && <ArticleList articles={articles} />}
     </div>
   )

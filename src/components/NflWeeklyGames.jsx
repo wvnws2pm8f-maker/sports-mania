@@ -4,7 +4,7 @@ import GameList from './GameList.jsx'
 
 // NFLは他競技と違い「第◯週」という単位でシーズンが進むため、通常の日付範囲の試合一覧ではなく
 // 週を選んで結果/対戦カードを見られるようにする(2026-09-15、ユーザー要望)。
-export default function NflWeeklyGames() {
+export default function NflWeeklyGames({ onSelectGame }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [selectedWeek, setSelectedWeek] = useState(null)
@@ -58,7 +58,7 @@ export default function NflWeeklyGames() {
           →
         </button>
       </div>
-      <GameList games={week?.games} sportPath="football" leaguePath="nfl" />
+      <GameList games={week?.games} sportPath="football" leaguePath="nfl" onSelectGame={onSelectGame} />
     </div>
   )
 }

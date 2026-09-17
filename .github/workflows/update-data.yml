@@ -53,6 +53,14 @@ jobs:
         run: node scripts/fetch-nfl-weeks.mjs
         continue-on-error: true
 
+      # 試合詳細(得点者・出場選手・打撃/投手成績)。「Fetch ESPN data」が書き出した
+      # 直近の試合一覧を読んで、終了済みの試合だけ追加でsummaryを取得する。
+      # フィールド名を実データで検証できていない部分があるため、失敗してもコミット自体は
+      # 止めない(continue-on-error)。
+      - name: Fetch game summaries (box scores)
+        run: node scripts/fetch-game-summaries.mjs
+        continue-on-error: true
+
       - name: Commit and push if changed
         id: commit
         run: |

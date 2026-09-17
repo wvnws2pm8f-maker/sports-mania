@@ -354,7 +354,6 @@ img {
 
 .highlight-link {
   display: inline-block;
-  margin-top: 8px;
   font-size: 12px;
   font-weight: 700;
   color: #ff6b6b;
@@ -363,6 +362,26 @@ img {
   background: #241010;
   border-radius: 8px;
   padding: 5px 10px;
+}
+
+.game-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.game-detail-link {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9db4ff;
+  border: 1px solid #263354;
+  background: #10192c;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 .boxing-card-title {
@@ -601,6 +620,72 @@ img {
   margin-bottom: 10px;
 }
 
+/* ---------- game detail ---------- */
+.game-detail-header {
+  background: #10192c;
+  border: 1px solid #1c2740;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.game-detail-team-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-weight: 700;
+}
+
+.game-detail-team-name {
+  flex: 1 1 auto;
+}
+
+.game-detail-score {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.game-detail-status {
+  font-size: 12px;
+  color: #6c7a99;
+  margin-top: 6px;
+}
+
+.game-detail-events {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.game-detail-event-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #10192c;
+  border: 1px solid #1c2740;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.game-detail-event-minute {
+  color: #6c7a99;
+  font-size: 12px;
+  flex: 0 0 auto;
+  min-width: 32px;
+}
+
+.game-detail-event-scorer {
+  flex: 1 1 auto;
+  font-weight: 700;
+}
+
+.game-detail-event-team {
+  color: #a9b6d6;
+  font-size: 12px;
+}
+
 .team-detail-logo {
   width: 40px;
   height: 40px;
@@ -761,6 +846,15 @@ img {
 
 .team-game-row.is-live {
   border-color: #4ee1a0;
+}
+
+.team-game-row.is-clickable {
+  cursor: pointer;
+}
+
+.team-game-detail-hint {
+  font-size: 12px;
+  opacity: 0.7;
 }
 
 .team-game-date {
