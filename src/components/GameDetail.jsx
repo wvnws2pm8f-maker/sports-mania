@@ -24,6 +24,10 @@ export default function GameDetail({ sportPath, leaguePath, game, onBack }) {
   }, [sportPath, leaguePath, game.id])
 
   const teamName = (teamId) => (teamId === game.home.id ? game.home.team : teamId === game.away.id ? game.away.team : '')
+  // detailは「取得はできたが中身が全部null」({goals:null}など)のこともあり、
+  // detail === null(取得失敗/対象外)だけで判定すると、その場合に何も表示されず
+  // 画面が真っ白になる不具合があった(2026-09-17、実データで発覚)。
+  const hasContent = Boolean(detail?.goals?.length || detail?.highlights?.length || detail?.leaders?.length)
 
   return (
     <div className="game-detail">
@@ -48,11 +52,11 @@ export default function GameDetail({ sportPath, leaguePath, game, onBack }) {
       {error && <p className="error-text">{error}</p>}
       {detail === undefined && !error && <p className="muted">よみこみちゅう…</p>}
 
-      {detail === null && !error && (
+      {detail !== undefined && !error && !hasContent && (
         <p className="muted">この試合の詳細データはまだありません(取得対象外の期間か、データが見つかりませんでした)</p>
       )}
 
-      {detail?.goals && (
+      {detail?.goals?.length > 0 && (
         <>
           <div className="team-detail-section-title">⚽ 得点者</div>
           <div className="game-detail-events">
@@ -71,7 +75,7 @@ export default function GameDetail({ sportPath, leaguePath, game, onBack }) {
         </>
       )}
 
-      {detail?.highlights && (
+      {detail?.highlights?.length > 0 && (
         <>
           <div className="team-detail-section-title">⚾ 注目の成績</div>
           <div className="game-detail-events">
@@ -88,7 +92,7 @@ export default function GameDetail({ sportPath, leaguePath, game, onBack }) {
         </>
       )}
 
-      {detail?.leaders && (
+      {detail?.leaders?.length > 0 && (
         <>
           <div className="team-detail-section-title">📊 主な選手成績</div>
           <div className="game-detail-events">

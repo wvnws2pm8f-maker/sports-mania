@@ -42,18 +42,23 @@ async function runPool(items, limit, worker) {
   return results
 }
 
-// サッカー: 得点イベントを拾う。ESPNのsummaryはheader.competitions[0].detailsに
-// プレー単位のイベント配列を持つことが多く、種別がGoal系のものを抜き出す(未検証・best effort)。
+// サッカー: 得点イベントを拾う。
+// 2026-09-17、実際に0-0以外の試合(バルセロナ7-2ラシン・サンタンデール)でgoalsが
+// 常にnullになる不具合が発覚し、外部ドキュメント(sportsdataverse-pyのESPN summary解説)で
+// 裏取りしたところ、正しくは summary.keyEvents 配列(header.competitions[0].detailsではない)で、
+// 各イベントは scoringPlay という真偽値フラグを持つ、と判明した。
+// それでも万一フィールド名が違った場合に備え、旧パス(header.competitions[0].details)も
+// フォールバックとして残し、type.textの正規表現判定も併用する。
 function extractSoccerGoals(summary) {
-  const details = summary?.header?.competitions?.[0]?.details || []
-  const goals = details.filter((d) => /goal/i.test(d?.type?.text || d?.type?.id || ''))
+  const keyEvents = summary?.keyEvents || summary?.header?.competitions?.[0]?.details || []
+  const goals = keyEvents.filter((d) => d?.scoringPlay === true || /goal/i.test(d?.type?.text || d?.type?.id || ''))
   if (goals.length === 0) return null
   return goals.map((d) => ({
     minute: d.clock?.displayValue || '',
     scorer: d.athletesInvolved?.[0]?.displayName || d.athletesInvolved?.[0]?.athlete?.displayName || '',
     teamId: d.team?.id || '',
-    ownGoal: /own goal/i.test(d?.type?.text || ''),
-    penalty: /penalty/i.test(d?.type?.text || '')
+    ownGoal: /own goal/i.test(d?.text || d?.shortText || d?.type?.text || ''),
+    penalty: /penalty|\(pen\.?\)|pk/i.test(d?.text || d?.shortText || d?.type?.text || '')
   }))
 }
 
