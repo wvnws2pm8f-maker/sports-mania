@@ -168,11 +168,14 @@ function normalizeScoreboard(data) {
 const STANDINGS_LEVEL = { mlb: 3, nba: 2, nfl: 3 }
 
 // 月ごとに分割してscoreboardを取得し、実際に欲しい[from, to]の範囲だけに絞り込んで返す。
+// &limit=500 が無いとデフォルトの件数上限で切り詰められることがある(MLBは30球団が
+// 毎日試合をするため1ヶ月分の試合数が非常に多く、無指定だと月の前半だけで打ち切られて
+// 直近〜今後の試合が1件も返らないことがあった。2026-09-17、実データで確認して発覚)。
 async function fetchScoreboardWindow(sportPath, leaguePath, daysBack, daysForward) {
   const { from, to } = dateWindow(daysBack, daysForward)
   const months = monthsInWindow(from, to)
   const results = await Promise.all(
-    months.map((ym) => fetchJson(`${BASE}/site/v2/sports/${sportPath}/${leaguePath}/scoreboard?dates=${ym}`))
+    months.map((ym) => fetchJson(`${BASE}/site/v2/sports/${sportPath}/${leaguePath}/scoreboard?dates=${ym}&limit=500`))
   )
   const byId = new Map()
   for (const data of results) {
