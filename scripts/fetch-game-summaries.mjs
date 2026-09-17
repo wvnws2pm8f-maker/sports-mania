@@ -85,7 +85,11 @@ function extractLeaders(summary) {
 }
 
 // 野球の打撃/投手成績。boxscore.players[].statistics[]にbatting/pitchingの区分があり、
-// 各athleteのstatsを含む形を想定(未検証・best effort)。ホームラン・勝敗投手だけ抜き出す。
+// 各athleteのstatsを含む形を想定。ホームランは実データで動作確認済み(2026-09-18)だが、
+// 「DEC」(勝敗)ラベルでの投手成績抽出は実データで1件もヒットせず、ラベル名の想定が
+// 誤っていたと判明。「誰が投げたか/誰が出場したか」を知りたいという要望(2026-09-18)には
+// 個別の成績値より前に「名前が確実に取れる」ことの方が重要なため、DEC探索は諦めて
+// 各グループの選手名をそのまま列挙する方式(extractBaseballLineups)に切り替えた。
 function extractBaseballHighlights(summary) {
   const teams = summary?.boxscore?.players || []
   if (!Array.isArray(teams) || teams.length === 0) return null
@@ -94,19 +98,15 @@ function extractBaseballHighlights(summary) {
     const teamId = teamBlock?.team?.id
     for (const group of teamBlock?.statistics || []) {
       const isBatting = /batting|hitting/i.test(group?.name || group?.type || '')
-      const isPitching = /pitching/i.test(group?.name || group?.type || '')
-      if (!isBatting && !isPitching) continue
+      if (!isBatting) continue
       const labels = group?.labels || group?.keys || []
       const hrIdx = labels.findIndex((l) => /^HR$/i.test(l))
-      const decIdx = labels.findIndex((l) => /^DEC$/i.test(l))
+      if (hrIdx < 0) continue
       for (const athlete of group?.athletes || []) {
         const name = athlete?.athlete?.displayName
         if (!name) continue
-        if (isBatting && hrIdx >= 0 && Number(athlete.stats?.[hrIdx]) > 0) {
+        if (Number(athlete.stats?.[hrIdx]) > 0) {
           result.push({ teamId, kind: 'HR', athlete: name, value: athlete.stats[hrIdx] })
-        }
-        if (isPitching && decIdx >= 0 && athlete.stats?.[decIdx]) {
-          result.push({ teamId, kind: 'DEC', athlete: name, value: athlete.stats[decIdx] })
         }
       }
     }
@@ -114,11 +114,43 @@ function extractBaseballHighlights(summary) {
   return result.length > 0 ? result : null
 }
 
+// 野球: 「誰が投げて、誰が出場したか」。個別の成績値(防御率・打率等)はラベル名の想定が
+// 外れるリスクがあるため踏み込まず、各チームの投手・野手の名前だけを確実に列挙する
+// (2026-09-18、「投手は誰なのか、出場した選手も分かると良い」との要望で追加)。
+// 先発投手はstarterフラグがあればそれで判定し、無ければ投手陣の最初の1人を先発扱いにする
+// (ESPNの表示順は通常そのまま登板順になっているという一般的な慣習に基づく、未検証の推測)。
+function extractBaseballLineups(summary) {
+  const teams = summary?.boxscore?.players || []
+  if (!Array.isArray(teams) || teams.length === 0) return null
+  const lineups = []
+  for (const teamBlock of teams) {
+    const teamId = teamBlock?.team?.id
+    let pitchers = []
+    let batters = []
+    for (const group of teamBlock?.statistics || []) {
+      const names = (group?.athletes || [])
+        .map((a) => ({ name: a?.athlete?.displayName, starter: a?.starter === true }))
+        .filter((a) => a.name)
+      if (/pitching/i.test(group?.name || group?.type || '')) pitchers = names
+      else if (/batting|hitting/i.test(group?.name || group?.type || '')) batters = names
+    }
+    if (pitchers.length > 0 && !pitchers.some((p) => p.starter)) pitchers[0].starter = true
+    if (pitchers.length > 0 || batters.length > 0) {
+      lineups.push({
+        teamId,
+        startingPitchers: pitchers.filter((p) => p.starter).map((p) => p.name),
+        otherPitchers: pitchers.filter((p) => !p.starter).map((p) => p.name),
+        batters: batters.map((b) => b.name)
+      })
+    }
+  }
+  return lineups.length > 0 ? lineups : null
+}
+
 function extractSummary(sportPath, summary) {
   if (sportPath === 'soccer') return { goals: extractSoccerGoals(summary) }
   if (sportPath === 'baseball') {
-    const highlights = extractBaseballHighlights(summary)
-    return { highlights, leaders: highlights ? null : extractLeaders(summary) }
+    return { highlights: extractBaseballHighlights(summary), lineups: extractBaseballLineups(summary) }
   }
   return { leaders: extractLeaders(summary) }
 }

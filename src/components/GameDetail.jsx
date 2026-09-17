@@ -27,7 +27,9 @@ export default function GameDetail({ sportPath, leaguePath, game, onBack }) {
   // detailは「取得はできたが中身が全部null」({goals:null}など)のこともあり、
   // detail === null(取得失敗/対象外)だけで判定すると、その場合に何も表示されず
   // 画面が真っ白になる不具合があった(2026-09-17、実データで発覚)。
-  const hasContent = Boolean(detail?.goals?.length || detail?.highlights?.length || detail?.leaders?.length)
+  const hasContent = Boolean(
+    detail?.goals?.length || detail?.highlights?.length || detail?.leaders?.length || detail?.lineups?.length
+  )
 
   return (
     <div className="game-detail">
@@ -89,6 +91,32 @@ export default function GameDetail({ sportPath, leaguePath, game, onBack }) {
               </div>
             ))}
           </div>
+        </>
+      )}
+
+      {detail?.lineups?.length > 0 && (
+        <>
+          <div className="team-detail-section-title">🧢 投手・出場選手</div>
+          {detail.lineups.map((l, i) => (
+            <div key={i} className="game-detail-lineup-card">
+              <div className="game-detail-lineup-team">{teamName(l.teamId) || `チーム${i + 1}`}</div>
+              {l.startingPitchers.length > 0 && (
+                <div className="game-detail-lineup-line">
+                  <span className="game-detail-lineup-label">先発投手</span> {l.startingPitchers.join(', ')}
+                </div>
+              )}
+              {l.otherPitchers.length > 0 && (
+                <div className="game-detail-lineup-line">
+                  <span className="game-detail-lineup-label">継投</span> {l.otherPitchers.join(', ')}
+                </div>
+              )}
+              {l.batters.length > 0 && (
+                <div className="game-detail-lineup-line">
+                  <span className="game-detail-lineup-label">出場選手</span> {l.batters.join(', ')}
+                </div>
+              )}
+            </div>
+          ))}
         </>
       )}
 
