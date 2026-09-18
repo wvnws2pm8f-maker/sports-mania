@@ -32,8 +32,14 @@ jobs:
       - name: Fetch ESPN data
         run: node scripts/fetch-espn-data.mjs
 
+      # timeout-minutes: 全文翻訳の追加(2026-09-18)で1回の実行時間が延びたことがあり、
+      # 万一ネットワーク呼び出しが詰まった場合に次の15分おきのcronに追い越されて
+      # ジョブごとキャンセルされる(concurrency: cancel-in-progress)前に、
+      # このステップ自身で安全に諦めさせる保険。
       - name: Fetch news (for home screen)
         run: node scripts/fetch-news.mjs
+        timeout-minutes: 8
+        continue-on-error: true # このステップが詰まって失敗しても、順位表・試合結果のコミットは止めない
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # 未設定でも動く(翻訳なしの英語表示になるだけ)
 

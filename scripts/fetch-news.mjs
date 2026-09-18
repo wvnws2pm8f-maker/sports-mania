@@ -205,6 +205,14 @@ async function runPool(items, limit, worker) {
 }
 
 const BODY_FETCH_CONCURRENCY = 4
+// 本文取得+翻訳は見出しよりずっと重い処理(記事単位の追加API呼び出し+長文のGemini翻訳)。
+// 新着記事をまとめて一度に処理しようとすると1回の実行時間が延び、次の15分おきのcronに
+// 追い越されてジョブごとキャンセルされる(concurrency: cancel-in-progress: true)ことがあり、
+// その場合は同じ実行内で先に済んでいた見出し翻訳の書き出しすら失われてしまっていた
+// (2026-09-18発覚: 見出し翻訳が0/26に戻ってしまうという報告で発覚)。
+// 1回の実行で処理する新規記事数に上限を設け、残りは次回以降の実行に持ち越すことで
+// 1回あたりの実行時間を抑える(下のmain()側で見出し翻訳を先に保存する対策と合わせて二重の対策)。
+const MAX_NEW_BODIES_PER_RUN = 10
 
 // 全文本体の取得+翻訳。見出し・要約とは別のAPI呼び出しが必要なため、独立した関数にしている。
 // 既に本文を取得済み(id+見出しが同じ)ならAPIを叩き直さず前回の結果を使い回す。
@@ -219,6 +227,10 @@ async function attachBodies(articles) {
     } else {
       needsFetch.push(a)
     }
+  }
+  if (needsFetch.length > MAX_NEW_BODIES_PER_RUN) {
+    console.log(`本文取得は今回${MAX_NEW_BODIES_PER_RUN}件までにし、残り${needsFetch.length - MAX_NEW_BODIES_PER_RUN}件は次回に持ち越します`)
+    needsFetch.length = MAX_NEW_BODIES_PER_RUN
   }
 
   if (needsFetch.length > 0) {
@@ -283,13 +295,21 @@ async function main() {
     throw new Error('ニュース記事が1件も取得できませんでした')
   }
 
-const translatedHeadlines = await translateArticles(all)
+  const translatedHeadlines = await translateArticles(all)
   if (hasGeminiKey()) {
     const newlyTranslated = translatedHeadlines.filter((a) => a.headlineJa).length
     console.log(`translation: ${newlyTranslated}/${translatedHeadlines.length} articles have 日本語`)
   } else {
     console.log('GEMINI_API_KEY未設定のため翻訳はスキップ(英語のまま表示されます)')
   }
+
+  // 【重要】本文取得・翻訳(この後)を始める前に、ここで一度書き出しておく。
+  // 本文処理は時間がかかり、次の15分おきのcronに追い越されてジョブごと
+  // キャンセルされることがある(concurrency: cancel-in-progress: true)。
+  // 最後に1回だけ書き出す方式だと、そうなった場合に見出し翻訳の分まで
+  // 消えてしまっていた(2026-09-18、見出し翻訳が0/26に戻る不具合として発覚)。
+  writeFileSync(NEWS_JSON_PATH, JSON.stringify({ articles: translatedHeadlines, updatedAt: new Date().toISOString() }))
+  console.log('interim save done (headlines committed before starting body fetch)')
 
   // 全文本体+翻訳(2026-09-18、「見出し・要約しか翻訳されない」との指摘で追加)。
   // 本文取得はニュース一覧APIとは別のAPIコールが必要なため、見出し翻訳とは独立して行う。
