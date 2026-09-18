@@ -1,8 +1,27 @@
-// groups: [{ groupName, rows: [{team, logo, rank, wins, losses, ties, winPercent, gamesBehind, streak, points, gamesPlayed, goalDiff}] }]
+// groups: [{ groupName, rows: [{team, logo, rank, wins, losses, ties, winPercent, gamesBehind, streak, points, gamesPlayed, goalDiff, clincher, magicNumberDivision, magicNumberWildcard}] }]
 // variant: 'soccer' | 'us' で表示列を切り替える。
 // (以前はrowsの中身から推測していたが、ESPNのNBA順位表にもたまたま
 //  "points"という名前の統計(得失点差寄りの値)が入っていて誤判定していたため、
 //  呼び出し側から明示的に渡す方式にした)
+
+// clincher記号(ESPN標準の表記): z=最高勝率確定, y=地区優勝確定, x=プレーオフ進出確定, e=敗退確定。
+// 「ドジャースの地区優勝が分からない」との要望(2026-09-18)で追加。
+function clinchBadge(clincher) {
+  if (!clincher) return null
+  if (clincher.includes('y') || clincher.includes('z')) return { text: '🏆 地区優勝', className: 'clinch-badge-division' }
+  if (clincher.includes('x')) return { text: '✓ PO進出', className: 'clinch-badge-playoff' }
+  if (clincher.includes('e')) return { text: '敗退', className: 'clinch-badge-eliminated' }
+  return null
+}
+
+// マジックナンバーは「地区優勝/プレーオフ進出まであと何勝(+相手の敗戦)が必要か」の目安。
+// 既に確定/敗退しているチームや対象外のチームには意味の無い値(0や空、異常値)が
+// 入ることがあるため、1〜99の範囲の数値だけを信頼して表示する(未検証のため保守的に)。
+function magicNumberValue(row) {
+  const n = parseInt(row.magicNumberDivision || row.magicNumberWildcard || '', 10)
+  return Number.isFinite(n) && n > 0 && n < 100 ? n : null
+}
+
 export default function StandingsTable({ groups, variant = 'us', onSelectTeam }) {
   if (!groups || groups.length === 0) {
     return <p className="muted">順位表を取得できませんでした</p>
@@ -59,6 +78,13 @@ export default function StandingsTable({ groups, variant = 'us', onSelectTeam })
                         {r.logo && <img className="team-logo" src={r.logo} alt="" />}
                         <span>{r.team}</span>
                       </button>
+                      {!isSoccerStyle &&
+                        (() => {
+                          const badge = clinchBadge(r.clincher)
+                          if (badge) return <span className={`clinch-badge ${badge.className}`}>{badge.text}</span>
+                          const magic = magicNumberValue(r)
+                          return magic ? <span className="clinch-badge magic-number-badge">M{magic}</span> : null
+                        })()}
                     </td>
                     {isSoccerStyle ? (
                       <>

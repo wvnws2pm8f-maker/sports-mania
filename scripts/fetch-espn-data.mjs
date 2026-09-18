@@ -73,7 +73,16 @@ function normalizeEntry(entry) {
     gamesBehind: statVal(entry, 'gamesBehind'),
     streak: statVal(entry, 'streak'),
     points: statVal(entry, 'points'),
-    goalDiff: statVal(entry, 'pointDifferential')
+    goalDiff: statVal(entry, 'pointDifferential'),
+    // 地区優勝/プレーオフ進出/敗退が確定すると、ESPNはentryに"clincher"という
+    // 記号(z=最高勝率確定, y=地区優勝確定, x=プレーオフ進出確定, e=敗退確定)を付ける。
+    // マジックナンバー(あと何勝/相手が何敗で確定か)もstatsの一項目として入っている。
+    // 「ドジャースの地区優勝が順位表で分からない、マジックナンバーも見たい」との
+    // 要望(2026-09-18)で追加。外部の実例(GitHub issue経由)でフィールド名を確認済みだが、
+    // このアプリの開発環境では実データで検証できていないため、次回のデータ更新後に要確認。
+    clincher: entry.clincher || '',
+    magicNumberDivision: statVal(entry, 'magicNumberDivision'),
+    magicNumberWildcard: statVal(entry, 'magicNumberWildcard')
   }
 }
 

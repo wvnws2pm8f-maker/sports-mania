@@ -283,6 +283,37 @@ img {
   font-weight: 800;
 }
 
+.clinch-badge {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.clinch-badge-division {
+  background: #3a2e0a;
+  color: #ffd166;
+}
+
+.clinch-badge-playoff {
+  background: #0f2e22;
+  color: #4ee1a0;
+}
+
+.clinch-badge-eliminated {
+  background: #241010;
+  color: #8a97b8;
+}
+
+.magic-number-badge {
+  background: #10192c;
+  border: 1px solid #263354;
+  color: #9db4ff;
+}
+
 .team-logo {
   width: 20px;
   height: 20px;
