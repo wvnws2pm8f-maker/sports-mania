@@ -6,17 +6,32 @@
 
 // clincher記号(ESPN標準の表記): z=最高勝率確定, y=地区優勝確定, x=プレーオフ進出確定, e=敗退確定。
 // 「ドジャースの地区優勝が分からない」との要望(2026-09-18)で追加。
-function clinchBadge(clincher) {
-  if (!clincher) return null
-  if (clincher.includes('y') || clincher.includes('z')) return { text: '🏆 地区優勝', className: 'clinch-badge-division' }
-  if (clincher.includes('x')) return { text: '✓ PO進出', className: 'clinch-badge-playoff' }
-  if (clincher.includes('e')) return { text: '敗退', className: 'clinch-badge-eliminated' }
+//
+// 【重要・修正】実際にドジャースが地区優勝を決めた後もこのclincherフィールドが
+// 常に空文字のままで、確定が表示されないという不具合が発覚(2026-09-18、ユーザー指摘)。
+// このESPNの取得方法(level=3)ではclincherが埋まらないようで、代わりにマジックナンバーが
+// 「0」になったことをもって確定と判断するようにした(数値の方は正しく取得できていた:
+// 例えばドジャースはマジック1〜0の間で優勝が決まった)。clincherが将来埋まる場合に備えて
+// 判定は残しつつ、マジックナンバーによる判定を優先的なフォールバックとして追加している。
+function clinchBadge(row) {
+  const mDiv = parseInt(row.magicNumberDivision, 10)
+  const mWc = parseInt(row.magicNumberWildcard, 10)
+  if (row.clincher?.includes('y') || row.clincher?.includes('z') || (Number.isFinite(mDiv) && mDiv <= 0)) {
+    return { text: '🏆 地区優勝', className: 'clinch-badge-division' }
+  }
+  if (row.clincher?.includes('x') || (Number.isFinite(mWc) && mWc <= 0)) {
+    return { text: '✓ PO進出', className: 'clinch-badge-playoff' }
+  }
+  if (row.clincher?.includes('e')) {
+    return { text: '敗退', className: 'clinch-badge-eliminated' }
+  }
   return null
 }
 
 // マジックナンバーは「地区優勝/プレーオフ進出まであと何勝(+相手の敗戦)が必要か」の目安。
 // 既に確定/敗退しているチームや対象外のチームには意味の無い値(0や空、異常値)が
 // 入ることがあるため、1〜99の範囲の数値だけを信頼して表示する(未検証のため保守的に)。
+// 0以下はclinchBadge側で「確定」として扱うため、ここでは1以上だけを対象にする。
 function magicNumberValue(row) {
   const n = parseInt(row.magicNumberDivision || row.magicNumberWildcard || '', 10)
   return Number.isFinite(n) && n > 0 && n < 100 ? n : null
@@ -80,7 +95,7 @@ export default function StandingsTable({ groups, variant = 'us', onSelectTeam })
                       </button>
                       {!isSoccerStyle &&
                         (() => {
-                          const badge = clinchBadge(r.clincher)
+                          const badge = clinchBadge(r)
                           if (badge) return <span className={`clinch-badge ${badge.className}`}>{badge.text}</span>
                           const magic = magicNumberValue(r)
                           return magic ? <span className="clinch-badge magic-number-badge">M{magic}</span> : null
