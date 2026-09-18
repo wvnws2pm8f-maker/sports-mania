@@ -62,6 +62,10 @@ export default function HomeView() {
   // 以前はボクサーのカードはタップしても何も起きず、選手カードはチームページに飛ぶだけで
   // 選手個人の詳細が見えなかった(ユーザー報告により発覚、2026-09-11)。
   const [expandedPlayerKey, setExpandedPlayerKey] = useState(null) // `${sportPath}-${playerId}` | null
+  // 「見出し・要約しか翻訳されず全文が読めない」との要望(2026-09-18)で、ニュースカードを
+  // タップするとその場で全文(翻訳できていれば日本語、できていなければ原文英語)を
+  // 展開できるようにした。
+  const [expandedNewsId, setExpandedNewsId] = useState(null)
   // 推し(お気に入り)チーム・選手。ログイン機能が無いためこの端末のlocalStorageに保存されている。
   // 他のページ(TeamDetail)で☆を付けて戻ってくるとHomeViewが再マウントされるので、
   // マウント時に読み直せば最新の状態になる。
@@ -751,16 +755,40 @@ export default function HomeView() {
         {!news && !error && <p className="muted">よみこみちゅう…</p>}
         {news && (
           <div className="news-list">
-            {news.map((a) => (
-              <a key={a.id} className="news-card" href={a.link} target="_blank" rel="noreferrer">
-                {a.image && <img className="news-card-image" src={a.image} alt="" />}
-                <div className="news-card-body">
-                  <div className="news-card-headline">{a.headlineJa || a.headline}</div>
-                  <div className="news-card-desc">{a.descriptionJa || a.description}</div>
-                  <div className="news-card-time">{timeAgo(a.published)}</div>
+            {news.map((a) => {
+              const isExpanded = expandedNewsId === a.id
+              const bodyText = a.bodyJa || a.body
+              return (
+                <div key={a.id} className="news-card-container">
+                  <button
+                    type="button"
+                    className="news-card-tap-area"
+                    onClick={() => setExpandedNewsId((prev) => (prev === a.id ? null : a.id))}
+                  >
+                    {a.image && <img className="news-card-image" src={a.image} alt="" />}
+                    <div className="news-card-body">
+                      <div className="news-card-headline">{a.headlineJa || a.headline}</div>
+                      <div className="news-card-desc">{a.descriptionJa || a.description}</div>
+                      <div className="news-card-time">
+                        {timeAgo(a.published)}
+                        {bodyText && (isExpanded ? ' ・ ▲ とじる' : ' ・ ▼ 全文を読む')}
+                      </div>
+                    </div>
+                  </button>
+                  {isExpanded && bodyText && (
+                    <div className="news-card-full-body">
+                      {!a.bodyJa && a.body && <div className="news-card-untranslated-note">※ 翻訳が間に合っておらず原文(英語)です</div>}
+                      {bodyText.split('\n\n').map((p, i) => (
+                        <p key={i}>{p}</p>
+                      ))}
+                      <a className="news-card-original-link" href={a.link} target="_blank" rel="noreferrer">
+                        元記事(ESPN)を見る ↗
+                      </a>
+                    </div>
+                  )}
                 </div>
-              </a>
-            ))}
+              )
+            })}
           </div>
         )}
       </section>

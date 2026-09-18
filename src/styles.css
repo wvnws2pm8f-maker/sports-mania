@@ -1603,6 +1603,52 @@ img {
   margin-top: 6px;
 }
 
+/* ---------- ニュース全文展開(2026-09-18) ---------- */
+.news-card-container {
+  background: #10192c;
+  border: 1px solid #1c2740;
+  border-radius: 14px;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.news-card-tap-area {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.news-card-full-body {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #1c2740;
+  font-size: 13px;
+  line-height: 1.75;
+  color: #c7d0e6;
+}
+
+.news-card-untranslated-note {
+  font-size: 11px;
+  color: #ffd166;
+  margin-bottom: 8px;
+}
+
+.news-card-original-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9db4ff;
+}
+
 .news-list-compact {
   margin-bottom: 18px;
 }

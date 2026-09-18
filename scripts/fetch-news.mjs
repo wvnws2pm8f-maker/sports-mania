@@ -36,6 +36,40 @@ async function fetchNewsFor(sportPath, leaguePath) {
   return (data.articles || []).map((a) => normalizeArticle(sportPath, a))
 }
 
+// 「見出し・要約しか翻訳されず全文が読めない」との指摘(2026-09-18)を受けて調査したところ、
+// ニュース一覧のnewsエンドポイント自体には見出し・要約しか無く(記事本文はそもそも
+// 含まれていない)、全文本体は別の now.core.api.espn.com/v1/sports/news/{id} という
+// 記事単体用のエンドポイントに story というHTML入りのフィールドとして存在すると
+// 実際に取得して確認できた。あまりに長い記事は翻訳コスト・失敗リスクが上がるため、
+// 一定文字数で切り詰める(「続きはリンク先で」という位置づけ)。
+const BODY_MAX_CHARS = 3000
+
+function stripHtml(html) {
+  if (!html) return ''
+  return html
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;|&rsquo;/g, "'")
+    .replace(/&quot;|&ldquo;|&rdquo;/g, '"')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+async function fetchArticleBody(id) {
+  try {
+    const data = await fetchJson(`https://now.core.api.espn.com/v1/sports/news/${id}`)
+    const story = data?.headlines?.[0]?.story
+    if (!story) return ''
+    return stripHtml(story).slice(0, BODY_MAX_CHARS)
+  } catch (err) {
+    console.error(`FAILED: article body ${id}: ${err.message}`)
+    return ''
+  }
+}
+
 // 英語の見出し・要約を日本語に翻訳する。GEMINI_API_KEYが無ければ何もしない
 // (=翻訳無しの英語表示のまま、アプリ側は既にそれに対応済み)。
 // 同じ記事を15分おきに毎回翻訳し直すのは無駄なので、前回の結果(news.json)に
@@ -47,6 +81,23 @@ function loadPreviousTranslations() {
     const map = new Map()
     for (const a of prev.articles || []) {
       if (a.headlineJa) map.set(a.id, { headline: a.headline, headlineJa: a.headlineJa, descriptionJa: a.descriptionJa })
+    }
+    return map
+  } catch {
+    return new Map()
+  }
+}
+
+// 全文翻訳のキャッシュも同じ考え方(id+見出しが同じなら前回の翻訳を使い回す)。
+// 本文は毎回全文APIを叩き直すと呼び出し数が無駄に増えるため、bodyそのものも
+// 一緒にキャッシュしておき、本文取得も含めて「既存のものは触らない」ようにする。
+function loadPreviousBodies() {
+  if (!existsSync(NEWS_JSON_PATH)) return new Map()
+  try {
+    const prev = JSON.parse(readFileSync(NEWS_JSON_PATH, 'utf8'))
+    const map = new Map()
+    for (const a of prev.articles || []) {
+      if (a.body) map.set(a.id, { headline: a.headline, body: a.body, bodyJa: a.bodyJa || '' })
     }
     return map
   } catch {
@@ -82,6 +133,36 @@ ${JSON.stringify(input)}`
   return map
 }
 
+// 本文は見出し・要約よりずっと長いため、1回のGemini呼び出しに詰め込みすぎると
+// レスポンスが大きくなりすぎて失敗しやすくなる。CHUNK_SIZE件ずつに分けて呼び出す
+// (呼び出し回数は増えるが、見出し翻訳と同じく「取れる範囲だけ確実に」を優先する)。
+const BODY_CHUNK_SIZE = 4
+
+async function translateBodiesBatch(items) {
+  if (items.length === 0) return new Map()
+  const map = new Map()
+  for (let i = 0; i < items.length; i += BODY_CHUNK_SIZE) {
+    const chunk = items.slice(i, i + BODY_CHUNK_SIZE)
+    const input = chunk.map((a) => ({ id: String(a.id), body: a.body }))
+    const prompt = `以下は英語のスポーツニュース記事本文の配列です。それぞれ自然な日本語に翻訳してください。
+リンクや選手名などの固有名詞はそのまま活かしつつ、読みやすい日本語にしてください。
+出力は入力と同じ件数・同じ順序のJSON配列のみとし、他の説明・前置き・コードブロック記号は一切付けないでください。
+各要素の形式: {"id": "入力と同じid", "body": "翻訳した本文(段落は\\n\\nで区切る)"}
+
+入力:
+${JSON.stringify(input)}`
+    const text = await callGemini(prompt, { asJson: true })
+    const parsed = parseGeminiJson(text)
+    if (Array.isArray(parsed)) {
+      parsed.forEach((item, idx) => {
+        const id = item?.id != null ? String(item.id) : chunk[idx] ? String(chunk[idx].id) : null
+        if (id && item?.body) map.set(id, item.body)
+      })
+    }
+  }
+  return map
+}
+
 async function translateArticles(articles) {
   if (!hasGeminiKey()) return articles
   const cache = loadPreviousTranslations()
@@ -107,6 +188,55 @@ async function translateArticles(articles) {
     }
   }
   return articles.map((a) => byId.get(a.id) || a)
+}
+
+// 簡易な並列実行プール(ESPNへの同時アクセスを抑える。fetch-team-details.mjs等と同じ考え方)
+async function runPool(items, limit, worker) {
+  const results = new Array(items.length)
+  let i = 0
+  async function next() {
+    while (i < items.length) {
+      const idx = i++
+      results[idx] = await worker(items[idx])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, next))
+  return results
+}
+
+const BODY_FETCH_CONCURRENCY = 4
+
+// 全文本体の取得+翻訳。見出し・要約とは別のAPI呼び出しが必要なため、独立した関数にしている。
+// 既に本文を取得済み(id+見出しが同じ)ならAPIを叩き直さず前回の結果を使い回す。
+async function attachBodies(articles) {
+  const cache = loadPreviousBodies()
+  const needsFetch = []
+  const byId = new Map()
+  for (const a of articles) {
+    const cached = cache.get(a.id)
+    if (cached && cached.headline === a.headline) {
+      byId.set(a.id, { body: cached.body, bodyJa: cached.bodyJa })
+    } else {
+      needsFetch.push(a)
+    }
+  }
+
+  if (needsFetch.length > 0) {
+    const bodies = await runPool(needsFetch, BODY_FETCH_CONCURRENCY, async (a) => ({
+      id: a.id,
+      body: await fetchArticleBody(a.id)
+    }))
+    const toTranslate = bodies.filter((b) => b.body)
+    const translatedMap = hasGeminiKey() ? await translateBodiesBatch(toTranslate) : new Map()
+    for (const b of bodies) {
+      byId.set(b.id, { body: b.body, bodyJa: translatedMap.get(String(b.id)) || '' })
+    }
+  }
+
+  return articles.map((a) => {
+    const b = byId.get(a.id)
+    return b ? { ...a, body: b.body, bodyJa: b.bodyJa } : a
+  })
 }
 
 async function main() {
@@ -153,12 +283,20 @@ async function main() {
     throw new Error('ニュース記事が1件も取得できませんでした')
   }
 
-  const translated = await translateArticles(all)
+const translatedHeadlines = await translateArticles(all)
   if (hasGeminiKey()) {
-    const newlyTranslated = translated.filter((a) => a.headlineJa).length
-    console.log(`translation: ${newlyTranslated}/${translated.length} articles have 日本語`)
+    const newlyTranslated = translatedHeadlines.filter((a) => a.headlineJa).length
+    console.log(`translation: ${newlyTranslated}/${translatedHeadlines.length} articles have 日本語`)
   } else {
     console.log('GEMINI_API_KEY未設定のため翻訳はスキップ(英語のまま表示されます)')
+  }
+
+  // 全文本体+翻訳(2026-09-18、「見出し・要約しか翻訳されない」との指摘で追加)。
+  // 本文取得はニュース一覧APIとは別のAPIコールが必要なため、見出し翻訳とは独立して行う。
+  const translated = await attachBodies(translatedHeadlines)
+  if (hasGeminiKey()) {
+    const withBody = translated.filter((a) => a.bodyJa).length
+    console.log(`body translation: ${withBody}/${translated.length} articles have 全文日本語`)
   }
 
   const output = { articles: translated, updatedAt: new Date().toISOString() }
