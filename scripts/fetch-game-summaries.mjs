@@ -46,16 +46,24 @@ async function runPool(items, limit, worker) {
 // 2026-09-17、実際に0-0以外の試合(バルセロナ7-2ラシン・サンタンデール)でgoalsが
 // 常にnullになる不具合が発覚し、外部ドキュメント(sportsdataverse-pyのESPN summary解説)で
 // 裏取りしたところ、正しくは summary.keyEvents 配列(header.competitions[0].detailsではない)で、
-// 各イベントは scoringPlay という真偽値フラグを持つ、と判明した。
-// それでも万一フィールド名が違った場合に備え、旧パス(header.competitions[0].details)も
-// フォールバックとして残し、type.textの正規表現判定も併用する。
+// 各イベントは scoringPlay という真偽値フラグを持つ、と判明した(この部分は実データで動作確認済み、
+// 得点イベント自体は正しく拾えている)。
+// ただし得点者名は依然として100%「不明」になる不具合が残っていた(2026-09-20発覚)。
+// athletesInvolved配列を想定していたが、外部ドキュメント(同じくsportsdataverse-py)を
+// 改めて確認したところ、正しくは athlete という単一オブジェクト(配列ではない)に
+// { id, displayName } が入っている形と判明。旧パスも万一のフォールバックとして残す。
 function extractSoccerGoals(summary) {
   const keyEvents = summary?.keyEvents || summary?.header?.competitions?.[0]?.details || []
   const goals = keyEvents.filter((d) => d?.scoringPlay === true || /goal/i.test(d?.type?.text || d?.type?.id || ''))
   if (goals.length === 0) return null
   return goals.map((d) => ({
     minute: d.clock?.displayValue || '',
-    scorer: d.athletesInvolved?.[0]?.displayName || d.athletesInvolved?.[0]?.athlete?.displayName || '',
+    scorer:
+      d.athlete?.displayName ||
+      d.athletesInvolved?.[0]?.displayName ||
+      d.athletesInvolved?.[0]?.athlete?.displayName ||
+      d.participants?.[0]?.athlete?.displayName ||
+      '',
     teamId: d.team?.id || '',
     ownGoal: /own goal/i.test(d?.text || d?.shortText || d?.type?.text || ''),
     penalty: /penalty|\(pen\.?\)|pk/i.test(d?.text || d?.shortText || d?.type?.text || '')
