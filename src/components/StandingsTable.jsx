@@ -13,10 +13,14 @@
 // 「0」になったことをもって確定と判断するようにした(数値の方は正しく取得できていた:
 // 例えばドジャースはマジック1〜0の間で優勝が決まった)。clincherが将来埋まる場合に備えて
 // 判定は残しつつ、マジックナンバーによる判定を優先的なフォールバックとして追加している。
-function clinchBadge(row) {
+function isDivisionClinched(row) {
   const mDiv = parseInt(row.magicNumberDivision, 10)
+  return Boolean(row.clincher?.includes('y') || row.clincher?.includes('z') || (Number.isFinite(mDiv) && mDiv <= 0))
+}
+
+function clinchBadge(row) {
   const mWc = parseInt(row.magicNumberWildcard, 10)
-  if (row.clincher?.includes('y') || row.clincher?.includes('z') || (Number.isFinite(mDiv) && mDiv <= 0)) {
+  if (isDivisionClinched(row)) {
     return { text: '🏆 地区優勝', className: 'clinch-badge-division' }
   }
   if (row.clincher?.includes('x') || (Number.isFinite(mWc) && mWc <= 0)) {
@@ -32,9 +36,20 @@ function clinchBadge(row) {
 // 既に確定/敗退しているチームや対象外のチームには意味の無い値(0や空、異常値)が
 // 入ることがあるため、1〜99の範囲の数値だけを信頼して表示する(未検証のため保守的に)。
 // 0以下はclinchBadge側で「確定」として扱うため、ここでは1以上だけを対象にする。
-function magicNumberValue(row) {
-  const n = parseInt(row.magicNumberDivision || row.magicNumberWildcard || '', 10)
-  return Number.isFinite(n) && n > 0 && n < 100 ? n : null
+//
+// divisionDecided: 同じグループ内の別チームが既に地区優勝を決めている場合、
+// 自チームの地区マジックナンバーを表示し続けても意味が無い(2026-09-20、
+// 「マジックが他のチームに点灯されているが事実上必要ない数字」との指摘で追加)。
+// その場合はワイルドカード(プレーオフ進出)側のマジックナンバーがあればそちらを見せる
+// (地区争いとは独立した、まだ意味のある数字のため)。
+function magicNumberValue(row, divisionDecided) {
+  const mDiv = parseInt(row.magicNumberDivision, 10)
+  if (!divisionDecided && Number.isFinite(mDiv) && mDiv > 0 && mDiv < 100) return { value: mDiv, wildcard: false }
+  const mWc = parseInt(row.magicNumberWildcard, 10)
+  // divisionDecided時にワイルドカード側へフォールバックした場合は、地区のマジックと
+  // 混同しないよう「WC」表記にする(2026-09-20、「地区優勝後の他チームの数字が紛らわしい」
+  // 指摘を受けての改善)。
+  return Number.isFinite(mWc) && mWc > 0 && mWc < 100 ? { value: mWc, wildcard: divisionDecided } : null
 }
 
 export default function StandingsTable({ groups, variant = 'us', onSelectTeam }) {
@@ -47,6 +62,7 @@ export default function StandingsTable({ groups, variant = 'us', onSelectTeam })
   return (
     <div className="standings-wrap">
       {groups.map((g) => {
+        const divisionDecided = !isSoccerStyle && g.rows.some(isDivisionClinched)
         return (
           <div key={g.groupName} className="standings-group">
             <div className="standings-group-title">{g.groupName}</div>
@@ -97,8 +113,13 @@ export default function StandingsTable({ groups, variant = 'us', onSelectTeam })
                         (() => {
                           const badge = clinchBadge(r)
                           if (badge) return <span className={`clinch-badge ${badge.className}`}>{badge.text}</span>
-                          const magic = magicNumberValue(r)
-                          return magic ? <span className="clinch-badge magic-number-badge">M{magic}</span> : null
+                          const magic = magicNumberValue(r, divisionDecided)
+                          return magic ? (
+                            <span className="clinch-badge magic-number-badge">
+                              {magic.wildcard ? 'WC-M' : 'M'}
+                              {magic.value}
+                            </span>
+                          ) : null
                         })()}
                     </td>
                     {isSoccerStyle ? (

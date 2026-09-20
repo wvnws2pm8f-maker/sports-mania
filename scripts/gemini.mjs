@@ -27,11 +27,22 @@ export async function callGemini(prompt, { asJson = false, retries = 2 } = {}) {
       const body = { contents: [{ parts: [{ text: prompt }] }] }
       if (asJson) body.generationConfig = { responseMimeType: 'application/json' }
 
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      })
+      // タイムアウトが無いと、通信が詰まった時にワークフローのステップ全体が
+      // timeout-minutesいっぱいまで固まってしまい、その回の結果が何も保存されない
+      // (2026-09-20、fetch-news.mjsの本文取得で発覚した同種の不具合と同じ対策)。
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 30000)
+      let res
+      try {
+        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: controller.signal
+        })
+      } finally {
+        clearTimeout(timer)
+      }
       if (!res.ok) {
         // 429(レート制限)や5xxは少し待って再試行する。それ以外(400等)は再試行しても無駄なので諦める。
         const errText = (await res.text()).slice(0, 300)

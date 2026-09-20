@@ -11,12 +11,25 @@ const NEWS_JSON_PATH = new URL('../public/data/news.json', import.meta.url)
 // リーグごとに取得して sportPath 単位でまとめる(サッカーは複数リーグを統合・重複除去)。
 const SOCCER_LEAGUES = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'uefa.champions']
 
-async function fetchJson(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': 'sports-mania-app/1.0 (data sync script)' } })
-  if (!res.ok) {
-    throw new Error(`fetch failed ${res.status} ${url}`)
+// 【重要】fetchにタイムアウトを設定していなかったため、1件でも通信が詰まると
+// Node標準のfetchはデフォルトでは(事実上)無期限に待ち続けてしまい、ワークフロー側の
+// timeout-minutes: 8いっぱいまで固まって強制終了→本文の翻訳結果が一切保存されない、
+// という不具合につながっていた(2026-09-20、「全文翻訳が一向に表示されない」との指摘で発覚。
+// 本文取得件数が何時間経っても6〜7件から増えず、翻訳も常に0件のままだったのが症状)。
+// AbortControllerで1リクエストあたりの上限を設け、詰まった1件のせいで実行全体が
+// 巻き添えにならないようにする。
+async function fetchJson(url, timeoutMs = 15000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'sports-mania-app/1.0 (data sync script)' }, signal: controller.signal })
+    if (!res.ok) {
+      throw new Error(`fetch failed ${res.status} ${url}`)
+    }
+    return await res.json()
+  } finally {
+    clearTimeout(timer)
   }
-  return res.json()
 }
 
 function normalizeArticle(sport, a) {
