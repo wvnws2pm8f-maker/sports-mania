@@ -7,6 +7,26 @@ import { callGemini, parseGeminiJson, hasGeminiKey } from './gemini.mjs'
 const BASE = 'https://site.api.espn.com/apis/site/v2/sports'
 const NEWS_JSON_PATH = new URL('../public/data/news.json', import.meta.url)
 
+// 【重要・2026-09-22】このスクリプトは15分おきのcronで動くが、Geminiの無料枠クォータは
+// それよりずっと粗い単位(1日あたり等)でしか回復しない。15分おきに毎回Geminiを叩くと
+// クォータをすぐ使い切ってしまい、その後は1日中ずっと"exceeded your current quota"で
+// 失敗し続ける(実際にそうなっていたことがGitHub Actionsのログで確認できた)。
+// そこで翻訳(Gemini呼び出し)自体は前回の試行からTRANSLATION_MIN_INTERVAL_MS以上
+// 経過している時だけ行うようにし、それ以外の実行では(ニュース記事の取得自体は毎回行いつつ)
+// 翻訳はスキップして前回までの結果をそのまま使い回す。ニュース取得・試合速報などGemini非依存の
+// 処理は今まで通り15分おきに動き続ける。
+const TRANSLATION_MIN_INTERVAL_MS = (Number(process.env.TRANSLATION_MIN_INTERVAL_MINUTES) || 60) * 60 * 1000
+
+function loadLastTranslationAttempt() {
+  if (!existsSync(NEWS_JSON_PATH)) return null
+  try {
+    const prev = JSON.parse(readFileSync(NEWS_JSON_PATH, 'utf8'))
+    return prev.lastTranslationAttemptAt ? new Date(prev.lastTranslationAttemptAt).getTime() : null
+  } catch {
+    return null
+  }
+}
+
 // ニュースは(順位表と違って)リーグ横断のエンドポイントが無いので、
 // リーグごとに取得して sportPath 単位でまとめる(サッカーは複数リーグを統合・重複除去)。
 const SOCCER_LEAGUES = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'uefa.champions']
@@ -176,8 +196,8 @@ ${JSON.stringify(input)}`
   return map
 }
 
-async function translateArticles(articles) {
-  if (!hasGeminiKey()) return articles
+async function translateArticles(articles, allowGemini) {
+  if (!hasGeminiKey() || !allowGemini) return articles
   const cache = loadPreviousTranslations()
   const toTranslate = []
   const byId = new Map()
@@ -229,7 +249,7 @@ const MAX_NEW_BODIES_PER_RUN = 10
 
 // 全文本体の取得+翻訳。見出し・要約とは別のAPI呼び出しが必要なため、独立した関数にしている。
 // 既に本文を取得済み(id+見出しが同じ)ならAPIを叩き直さず前回の結果を使い回す。
-async function attachBodies(articles) {
+async function attachBodies(articles, allowGemini) {
   const cache = loadPreviousBodies()
   const needsFetch = []
   const byId = new Map()
@@ -252,7 +272,7 @@ async function attachBodies(articles) {
       body: await fetchArticleBody(a.id)
     }))
     const toTranslate = bodies.filter((b) => b.body)
-    const translatedMap = hasGeminiKey() ? await translateBodiesBatch(toTranslate) : new Map()
+    const translatedMap = hasGeminiKey() && allowGemini ? await translateBodiesBatch(toTranslate) : new Map()
     for (const b of bodies) {
       byId.set(b.id, { body: b.body, bodyJa: translatedMap.get(String(b.id)) || '' })
     }
@@ -308,7 +328,20 @@ async function main() {
     throw new Error('ニュース記事が1件も取得できませんでした')
   }
 
-  const translatedHeadlines = await translateArticles(all)
+  const lastAttempt = loadLastTranslationAttempt()
+  const now = Date.now()
+  const translationDue = lastAttempt === null || now - lastAttempt >= TRANSLATION_MIN_INTERVAL_MS
+  const allowGemini = hasGeminiKey() && translationDue
+  // 実際に翻訳を試みた場合だけ「最終試行時刻」を今回に進める。スキップした回は前回の時刻を
+  // そのまま引き継ぐことで、次回以降も正しく「前回の試行から何分経ったか」を計算できるようにする。
+  const lastTranslationAttemptAt = allowGemini ? new Date(now).toISOString() : lastAttempt ? new Date(lastAttempt).toISOString() : null
+
+  if (hasGeminiKey() && !translationDue) {
+    const waitMin = Math.ceil((TRANSLATION_MIN_INTERVAL_MS - (now - lastAttempt)) / 60000)
+    console.log(`翻訳: 前回の試行からまだ${TRANSLATION_MIN_INTERVAL_MS / 60000}分経っていないためスキップ(次回可能まであと約${waitMin}分。無料枠クォータの節約のため)`)
+  }
+
+  const translatedHeadlines = await translateArticles(all, allowGemini)
   if (hasGeminiKey()) {
     const newlyTranslated = translatedHeadlines.filter((a) => a.headlineJa).length
     console.log(`translation: ${newlyTranslated}/${translatedHeadlines.length} articles have 日本語`)
@@ -321,18 +354,21 @@ async function main() {
   // キャンセルされることがある(concurrency: cancel-in-progress: true)。
   // 最後に1回だけ書き出す方式だと、そうなった場合に見出し翻訳の分まで
   // 消えてしまっていた(2026-09-18、見出し翻訳が0/26に戻る不具合として発覚)。
-  writeFileSync(NEWS_JSON_PATH, JSON.stringify({ articles: translatedHeadlines, updatedAt: new Date().toISOString() }))
+  writeFileSync(
+    NEWS_JSON_PATH,
+    JSON.stringify({ articles: translatedHeadlines, updatedAt: new Date().toISOString(), lastTranslationAttemptAt })
+  )
   console.log('interim save done (headlines committed before starting body fetch)')
 
   // 全文本体+翻訳(2026-09-18、「見出し・要約しか翻訳されない」との指摘で追加)。
   // 本文取得はニュース一覧APIとは別のAPIコールが必要なため、見出し翻訳とは独立して行う。
-  const translated = await attachBodies(translatedHeadlines)
+  const translated = await attachBodies(translatedHeadlines, allowGemini)
   if (hasGeminiKey()) {
     const withBody = translated.filter((a) => a.bodyJa).length
     console.log(`body translation: ${withBody}/${translated.length} articles have 全文日本語`)
   }
 
-  const output = { articles: translated, updatedAt: new Date().toISOString() }
+  const output = { articles: translated, updatedAt: new Date().toISOString(), lastTranslationAttemptAt }
   writeFileSync(NEWS_JSON_PATH, JSON.stringify(output))
   console.log(`done. total articles=${translated.length}`)
 }
