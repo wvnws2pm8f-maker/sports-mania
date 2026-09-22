@@ -32,6 +32,16 @@ jobs:
       - name: Fetch ESPN data
         run: node scripts/fetch-espn-data.mjs
 
+      # サッカーの試合結果を「第何節」でまとめたいという要望(2026-09-22)への対応。
+      # ESPNのAPIには節番号の公式フィールドが無いため自前で算出し、直前のステップが
+      # 書き出したsoccer-*.jsonのgames配列にroundフィールドを追記する(そのためこのステップより後に置く)。
+      # シーズン全体(月×10ヶ月分×5リーグ)を毎回取得し直すため他ステップより時間がかかりうるので、
+      # 詰まっても後続のcommitを止めないようtimeout+continue-on-errorを付ける。
+      - name: Fetch soccer round numbers
+        run: node scripts/fetch-soccer-rounds.mjs
+        timeout-minutes: 6
+        continue-on-error: true
+
       # timeout-minutes: 全文翻訳の追加(2026-09-18)で1回の実行時間が延びたことがあり、
       # 万一ネットワーク呼び出しが詰まった場合に次の15分おきのcronに追い越されて
       # ジョブごとキャンセルされる(concurrency: cancel-in-progress)前に、
