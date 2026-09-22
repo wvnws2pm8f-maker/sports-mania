@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getTeamDetail, getNews } from '../services/espn.js'
 import { isFavoriteTeam, toggleFavoriteTeam, isFavoritePlayer, toggleFavoritePlayer } from '../utils/favorites.js'
+import { translateGameStatus } from '../utils/espnLabels.js'
 import venueGuides from '../data/venueGuides.json'
 import GameDetail from './GameDetail.jsx'
 
@@ -249,7 +250,7 @@ export default function TeamDetail({ sportPath, leaguePath, teamId, standingsRow
                 className={`team-game-row ${g.isLive ? 'is-live' : ''} ${g.isFinal ? 'is-clickable' : ''}`}
                 onClick={g.isFinal ? () => setSelectedGame(g) : undefined}
               >
-                <span className="team-game-date">{g.isFinal || g.isLive ? g.statusDetail : formatDate(g.date)}</span>
+                <span className="team-game-date">{g.isFinal || g.isLive ? translateGameStatus(g.statusDetail) : formatDate(g.date)}</span>
                 <span>{isHome ? 'vs' : '@'}</span>
                 {opponent.logo && <img className="team-logo" src={opponent.logo} alt="" />}
                 <span className="team-game-opponent">{opponent.team}</span>

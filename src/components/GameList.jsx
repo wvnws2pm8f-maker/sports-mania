@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { highlightSearchUrl } from '../utils/highlightLink.js'
 import { isFavoriteGame, toggleFavoriteGame } from '../utils/favorites.js'
+import { translateGameStatus } from '../utils/espnLabels.js'
 
 function formatDate(iso) {
   const d = new Date(iso)
@@ -113,7 +114,7 @@ export default function GameList({ games, sportPath, leaguePath, onSelectGame })
           <div key={g.id} className={`game-card ${g.isLive ? 'is-live' : ''}`}>
             <div className="game-card-status">
               {g.isLive && <span className="live-badge">LIVE</span>}
-              <span>{g.isFinal || g.isLive ? g.statusDetail : formatDate(g.date)}</span>
+              <span>{g.isFinal || g.isLive ? translateGameStatus(g.statusDetail) : formatDate(g.date)}</span>
               <FavoriteGameStar g={g} sportPath={sportPath} leaguePath={leaguePath} />
             </div>
             {/* プレーオフ中、ESPNが対戦カードに付けてくる"シリーズ何勝何敗か"の情報。

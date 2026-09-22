@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getF1Data } from '../services/espn.js'
 import { articles } from '../data/articles.js'
+import { translateF1Status } from '../utils/espnLabels.js'
 import ArticleList from './ArticleList.jsx'
 
 const f1Articles = articles.filter((a) => a.sport === 'f1')
@@ -138,7 +139,7 @@ export default function F1View() {
                       <td className="col-rank">{r.position}</td>
                       <td className="col-team">{r.driverName}</td>
                       <td>{r.constructorName}</td>
-                      <td>{r.status === 'Finished' ? `${r.points}pt` : r.status}</td>
+                      <td>{r.status === 'Finished' ? `${r.points}pt` : translateF1Status(r.status)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -154,7 +155,7 @@ export default function F1View() {
             <div key={r.round} className={`game-card ${r.date === today ? 'is-live' : ''}`}>
               <div className="game-card-status">
                 {r.date < today ? '終了' : formatDate(r.date)}
-                {r.date === today && <span className="live-badge">TODAY</span>}
+                {r.date === today && <span className="live-badge">本日開催</span>}
               </div>
               <div className="boxing-card-title">
                 第{r.round}戦 {r.raceName}
