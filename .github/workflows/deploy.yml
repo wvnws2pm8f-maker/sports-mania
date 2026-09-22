@@ -23,7 +23,13 @@ jobs:
         with:
           node-version: 20
       - run: npm install
+      # VITE_GEMINI_API_KEY: 本文の「その場で翻訳」用に、ブラウザから直接Geminiを呼ぶために
+      # 必要(2026-09-22追加)。ビルド時にJSバンドルへ埋め込まれる=公開される値になるため、
+      # このAPIキーはGoogle Cloud Console側でサイトのドメインへのHTTPリファラー制限を
+      # かけて運用すること。未設定でもビルド・翻訳無しでの動作は問題ない。
       - run: npm run build
+        env:
+          VITE_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
