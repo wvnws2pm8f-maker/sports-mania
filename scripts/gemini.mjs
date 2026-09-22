@@ -10,6 +10,12 @@ export function hasGeminiKey() {
   return Boolean(process.env.GEMINI_API_KEY)
 }
 
+// 1回の実行(1回のnodeプロセス)内でクォータ超過を検知したら、以降の呼び出しは
+// フェッチすら行わず即座に諦める。同じ実行の中で見出し翻訳がクォータ超過で失敗した後、
+// 本文翻訳(1回でも呼べば必ず同じ理由で失敗する)まで律儀に試みて無駄にAPIへ
+// アクセスし続けることが無いようにする(2026-09-22、本文翻訳が常に0件だった問題の対策の一部)。
+let quotaExhaustedThisRun = false
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -21,6 +27,7 @@ function sleep(ms) {
 export async function callGemini(prompt, { asJson = false, retries = 2 } = {}) {
   const key = process.env.GEMINI_API_KEY
   if (!key) return null
+  if (quotaExhaustedThisRun) return null
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
@@ -47,7 +54,17 @@ export async function callGemini(prompt, { asJson = false, retries = 2 } = {}) {
         // 429(レート制限)や5xxは少し待って再試行する。それ以外(400等)は再試行しても無駄なので諦める。
         const errText = (await res.text()).slice(0, 300)
         console.error(`Gemini API error ${res.status}: ${errText}`)
-        if ((res.status === 429 || res.status >= 500) && attempt < retries) {
+        // 【重要・2026-09-22発覚】429には2種類あり、区別せず一律リトライしていたことが
+        // 「本文翻訳が0件のまま」の原因になっていた。一時的なレート制限(1分あたりの上限)は
+        // 数秒待てば回復するが、"exceeded your current quota"は日次/月次クォータ自体を
+        // 使い切った状態で、数秒〜数十秒待っても回復しない。それにも関わらず毎回2回リトライ
+        // していたため、1回の記事翻訳あたり最大3倍の無駄な呼び出しでクォータを消費し、
+        // 15分おきの実行が積み重なって日次クォータを早々に使い切り、本文翻訳が
+        // いつまで経っても成功しない状態が続いていた。クォータ超過と判定できた場合は
+        // 即座に諦め、無駄なリトライでクォータをこれ以上消費しないようにする。
+        const quotaExceeded = res.status === 429 && /exceeded your current quota/i.test(errText)
+        if (quotaExceeded) quotaExhaustedThisRun = true
+        if (!quotaExceeded && (res.status === 429 || res.status >= 500) && attempt < retries) {
           await sleep(2000 * (attempt + 1))
           continue
         }

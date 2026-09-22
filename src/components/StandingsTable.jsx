@@ -1,3 +1,5 @@
+import { translateGroupName } from '../utils/espnLabels.js'
+
 // groups: [{ groupName, rows: [{team, logo, rank, wins, losses, ties, winPercent, gamesBehind, streak, points, gamesPlayed, goalDiff, clincher, magicNumberDivision, magicNumberWildcard}] }]
 // variant: 'soccer' | 'us' で表示列を切り替える。
 // (以前はrowsの中身から推測していたが、ESPNのNBA順位表にもたまたま
@@ -65,7 +67,7 @@ export default function StandingsTable({ groups, variant = 'us', onSelectTeam })
         const divisionDecided = !isSoccerStyle && g.rows.some(isDivisionClinched)
         return (
           <div key={g.groupName} className="standings-group">
-            <div className="standings-group-title">{g.groupName}</div>
+            <div className="standings-group-title">{translateGroupName(g.groupName)}</div>
             <table className="standings-table">
               <thead>
                 <tr>

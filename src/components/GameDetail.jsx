@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getGameSummary } from '../services/espn.js'
+import { translateGameStatus, translateStatCategory } from '../utils/espnLabels.js'
 
 // 試合の詳細(得点者・出場選手の主な成績など)。2026-09-17の要望で追加。
 // 【注意】ESPNの試合詳細データの正確な形をこの開発環境からは検証できておらず、
@@ -48,7 +49,7 @@ export default function GameDetail({ sportPath, leaguePath, game, onBack }) {
           <span className="game-detail-team-name">{game.home.team}</span>
           <span className="game-detail-score">{game.home.score}</span>
         </div>
-        <div className="game-detail-status">{game.statusDetail}</div>
+        <div className="game-detail-status">{translateGameStatus(game.statusDetail)}</div>
       </div>
 
       {error && <p className="error-text">{error}</p>}
@@ -128,7 +129,7 @@ export default function GameDetail({ sportPath, leaguePath, game, onBack }) {
               <div key={i} className="game-detail-event-row">
                 <span className="game-detail-event-scorer">{l.athlete}</span>
                 <span className="game-detail-event-team">
-                  {l.category} {l.value}
+                  {translateStatCategory(l.category)} {l.value}
                 </span>
                 <span className="game-detail-event-team">{teamName(l.teamId)}</span>
               </div>
