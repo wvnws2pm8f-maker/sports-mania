@@ -4,7 +4,7 @@ import { allLeagueTargets } from '../data/leagues.js'
 import { rivalries } from '../data/rivalries.js'
 import { mlbPlayoffFormat, nbaPlayoffFormat, boxingTitleSystem, uclFormat } from '../data/championshipInfo.js'
 import { getFavoriteTeams, getFavoritePlayers, getFavoriteGames } from '../utils/favorites.js'
-import { hasClientTranslation, translateArticleBody } from '../utils/geminiClient.js'
+import { translateArticleBody } from '../utils/geminiClient.js'
 import boxingData from '../data/boxingSchedule.json'
 import boxerProfiles from '../data/boxerProfiles.json'
 import TeamDetail from './TeamDetail.jsx'
@@ -191,7 +191,7 @@ export default function HomeView() {
 
   // ニュースカードを展開した時に呼ぶ。既に翻訳済み/翻訳中ならAPIを呼ばずそのまま戻る。
   function translateNewsBody(a) {
-    if (!hasClientTranslation() || !a.body || a.bodyJa) return
+    if (!a.body || a.bodyJa) return
     if (clientBodyJa[a.id] || translatingBody[a.id]) return
     setTranslatingBody((prev) => ({ ...prev, [a.id]: true }))
     setTranslateBodyFailed((prev) => ({ ...prev, [a.id]: false }))

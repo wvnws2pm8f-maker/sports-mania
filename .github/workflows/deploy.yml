@@ -23,17 +23,7 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      # VITE_GEMINI_API_KEY: 本文の「その場で翻訳」用に、ブラウザから直接Geminiを呼ぶために
-      # 必要(2026-09-22追加)。ビルド時にJSバンドルへ埋め込まれる=公開される値になるため、
-      # 【重要】update-data.yml/update-team-data.ymlが使うGEMINI_API_KEY(サーバー側専用)とは
-      # 別の、ブラウザ用に新しく発行したAPIキーをGEMINI_CLIENT_API_KEYという名前でリポジトリの
-      # Secretsに登録して使うこと。同じキーを共用すると、このキーにHTTPリファラー制限
-      # (このサイトのドメインでのみ使用可、を強制する設定)をかけた瞬間に、リファラーを
-      # 送らないGitHub Actions側(サーバー側の見出し翻訳等)が使えなくなってしまうため。
-      # 未設定でもビルド・本文のその場翻訳無しでの動作は問題ない。
       - run: npm run build
-        env:
-          VITE_GEMINI_API_KEY: ${{ secrets.GEMINI_CLIENT_API_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

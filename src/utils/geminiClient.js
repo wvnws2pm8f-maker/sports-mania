@@ -1,21 +1,17 @@
-// ニュース記事の「全文を読む」をタップした時、その場でブラウザから直接Gemini APIを呼んで
-// 本文を日本語に翻訳する(2026-09-22、「本文はクリックした記事だけ翻訳してGeminiの
-// 無料枠クォータを節約したい」との要望で追加)。
+// ニュース記事の「全文を読む」をタップした時、その場で本文を日本語に翻訳する。
+// Geminiには直接ブラウザから呼ばず、専用のCloudflare Worker(リポジトリ内 worker/)を経由する。
 //
-// 【重要・セキュリティ上の注意】このAPIキーはビルド時にJSバンドルへそのまま埋め込まれるため、
-// サイトのソース(devtoolsのNetworkタブ等)を見れば誰でも値を読み取れる。悪用や意図しない
-// クォータ消費を防ぐため、Google Cloud Console側でこのAPIキーに「このサイトのドメインからの
-// リクエストのみ許可する」HTTPリファラー制限をかけて運用することを前提にしている
-// (Google MapsのJS埋め込み用キー等と同じ考え方)。この制限自体はGoogleアカウント側の設定な
-// ので、このリポジトリのコードからは設定できない。
-const MODEL = 'gemini-3.6-flash'
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY
+// 【経緯・2026-09-23】当初はブラウザから直接Gemini APIを呼ぶ案(APIキーをJSに埋め込み、
+// Google Cloud Console側でHTTPリファラー制限をかけてこのサイト限定にする)を検討したが、
+// GeminiのAPIキーは必ずサービスアカウントへのバインドが必要で、そのようなキーは
+// リファラー制限に対応していない(IPアドレス制限しか選べない)ことが実際の画面で確認できた。
+// 不特定多数のブラウザから使われる以上IP制限は意味を持たないため、代わりにこの用途専用の
+// Cloudflare Worker(worker/src/index.js)を用意し、Gemini APIキー自体はそのWorkerの
+// シークレットとしてサーバー側にだけ保持する方式に変更した。ブラウザのコードにも
+// ビルド後のJSにも、Gemini APIキーは一切含まれない。
+const WORKER_URL = 'https://sports-mania-translate.eeggxgjsd85.workers.dev'
 
 const CACHE_PREFIX = 'mania-body-ja-v1:'
-
-export function hasClientTranslation() {
-  return Boolean(API_KEY)
-}
 
 function cacheKey(articleId, headline) {
   return `${CACHE_PREFIX}${articleId}:${headline}`
@@ -39,28 +35,20 @@ function saveCached(articleId, headline, text) {
   }
 }
 
-// 記事本文を日本語に翻訳する。同じ記事(id+見出しが同じ)を過去に翻訳済みならAPIを
+// 記事本文を日本語に翻訳する。同じ記事(id+見出しが同じ)を過去に翻訳済みならWorkerを
 // 呼ばずキャッシュを返す(同じ端末で何度も開き直してもクォータを消費しないため)。
 export async function translateArticleBody(articleId, headline, body) {
   const cached = loadCached(articleId, headline)
   if (cached) return cached
 
-  if (!API_KEY) throw new Error('no-key')
-
-  const prompt = `以下は英語のスポーツニュース記事本文です。自然な日本語に翻訳してください。
-リンクや選手名などの固有名詞はそのまま活かしつつ、読みやすい日本語にしてください。
-前置き・説明・引用符は付けず、翻訳した本文のみを出力してください。
-
-${body}`
-
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 20000)
+  const timer = setTimeout(() => controller.abort(), 25000)
   let res
   try {
-    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`, {
+    res = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      body: JSON.stringify({ text: body }),
       signal: controller.signal
     })
   } finally {
@@ -68,14 +56,13 @@ ${body}`
   }
 
   if (!res.ok) {
-    throw new Error(`gemini-error-${res.status}`)
+    throw new Error(`worker-error-${res.status}`)
   }
   const data = await res.json()
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
-  if (!text) {
-    throw new Error('gemini-empty')
+  if (!data.text) {
+    throw new Error('worker-empty')
   }
 
-  saveCached(articleId, headline, text)
-  return text
+  saveCached(articleId, headline, data.text)
+  return data.text
 }
