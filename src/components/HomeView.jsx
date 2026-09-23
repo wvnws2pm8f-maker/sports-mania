@@ -813,7 +813,12 @@ export default function HomeView() {
                     <div className="news-card-full-body">
                       {isTranslating && <div className="news-card-untranslated-note">🌐 翻訳中…(表示中は原文です)</div>}
                       {!isTranslating && !bodyJa && translateBodyFailed[a.id] && (
-                        <div className="news-card-untranslated-note">※ 翻訳に失敗しました。原文(英語)を表示しています</div>
+                        <div className="news-card-untranslated-note">
+                          ※ 翻訳に失敗しました(混雑中の可能性があります)。原文(英語)を表示しています
+                          <button type="button" className="news-card-retry-translate" onClick={() => translateNewsBody(a)}>
+                            🔄 もう一度試す
+                          </button>
+                        </div>
                       )}
                       {!isTranslating && !bodyJa && !translateBodyFailed[a.id] && (
                         <div className="news-card-untranslated-note">※ 翻訳が間に合っておらず原文(英語)です</div>
