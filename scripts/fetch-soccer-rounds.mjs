@@ -7,15 +7,23 @@
 // week/round/matchdayに相当するフィールドが一切無く、notesも空。ESPN自身のサイトが
 // 節番号をどこか別の内部データで持っているとしても、この公開APIからは取得できない。
 //
-// そのため、節番号は自前で算出する。総当たり方式のリーグ戦では「同じ節の中に同じチームは
-// 2回登場しない」という性質を使い、シーズン全試合を日付順に走査して、既に登場済みの
-// チームが再登場したタイミングで次の節に進める、という貪欲法でグルーピングする。
+// そのため、節番号は自前で算出する。総当たり方式のリーグ戦・CLのリーグフェーズは、
+// どちらも「1節=参加チームが必ず1試合ずつ」という構造のため、1節あたりの試合数は
+// 常に(参加チーム数÷2)になる。日付順に並べたシーズン全試合をこの固定サイズで
+// 区切るだけで節番号を算出する(詳細はassignRounds関数のコメント参照。
+// 当初は「同じチームが再登場したら次の節」という貪欲法だったが、ラ・リーガで
+// 実際の38節のはずが41節に分裂する不具合が実データで発覚したため、この固定サイズ方式に変更した)。
 // (fetch-nfl-weeks.mjsで「現在の週をESPNの値に頼らず自己判定する」とした方針と同じ考え方)
-// 延期戦などで日付の前後が入れ替わると節番号が1つずれる可能性はあるが、致命的な破綻にはならない。
 //
-// このスクリプトは fetch-espn-data.mjs の後に実行する前提: 既に書き出し済みの
-// public/data/soccer-<league>.json を読み込み、games配列の各試合にroundフィールドを
-// 追記して上書き保存する(standings等はそのまま)。
+// 【2026-09-23追記・修正】当初はfetch-espn-data.mjsの狭い取得範囲(前後3〜10日)で
+// 既に書き出し済みのgames配列にroundを後付けするだけだったが、これだと
+// ①1つの節の試合が範囲の途中で切れて一部のカードしか表示されない
+// ②過去の節・2週間以上先の節が見れない
+// という2つの不具合になった(2026-09-23、実データで確認・ユーザー指摘)。
+// そこで方針を変更: このスクリプトがシーズン全試合を取得して節番号を算出したうえで、
+// games配列そのものをシーズン全体のデータで丸ごと置き換える(fetch-espn-data.mjsの後に
+// 実行する前提で、standings等はそのまま・gamesだけ上書き)。これによりGameList.jsxの
+// 節ドロップダウンで開幕から最終節まで自由に行き来できるようになる。
 import { readFileSync, writeFileSync } from 'node:fs'
 import { TARGETS } from './leagues.mjs'
 
@@ -36,7 +44,7 @@ async function fetchJson(url, timeoutMs = 15000) {
   }
 }
 
-// シーズンを8月開始〜翌5月終了とみなし、対象の年月(YYYYMM)を列挙する。
+// シーズンを8月開始〜翌6月終了とみなし、対象の年月(YYYYMM)を列挙する。
 // (欧州サッカーの主要リーグ・チャンピオンズリーグはいずれもこの期間に収まる。
 // ondays系のカレンダーAPIで実データを確認済み: 2026-27プレミアリーグは8/21開幕〜5/30閉幕)
 // シーズン全体を対象にするのは、途中の月だけだと節の境界(貪欲法の基準となる
@@ -51,12 +59,36 @@ function seasonMonths() {
   return months
 }
 
-function normalizeMini(ev) {
+// fetch-espn-data.mjsのnormalizeEventと同等のロジック。両スクリプトは独立して動く前提で
+// あえて共有せず複製している(fetch-nfl-weeks.mjsと同じ方針)。
+function normalizeEvent(ev) {
   const comp = ev.competitions?.[0]
   const competitors = comp?.competitors || []
   const home = competitors.find((c) => c.homeAway === 'home')
   const away = competitors.find((c) => c.homeAway === 'away')
-  return { id: ev.id, date: ev.date, homeId: home?.team?.id || '', awayId: away?.team?.id || '' }
+  const statusType = ev.status?.type || {}
+  return {
+    id: ev.id,
+    name: ev.name,
+    date: ev.date,
+    statusDetail: statusType.shortDetail || statusType.description || '',
+    isLive: statusType.state === 'in',
+    isFinal: Boolean(statusType.completed),
+    venue: comp?.venue?.fullName || '',
+    home: {
+      id: home?.team?.id || '',
+      team: home?.team?.displayName || '',
+      score: home?.score ?? '',
+      logo: home?.team?.logo || ''
+    },
+    away: {
+      id: away?.team?.id || '',
+      team: away?.team?.displayName || '',
+      score: away?.score ?? '',
+      logo: away?.team?.logo || ''
+    },
+    series: comp?.series?.summary ? { summary: comp.series.summary, title: comp.series.title || '' } : null
+  }
 }
 
 async function fetchSeasonEvents(leaguePath) {
@@ -72,27 +104,34 @@ async function fetchSeasonEvents(leaguePath) {
   const byId = new Map()
   for (const data of results) {
     for (const ev of data.events || []) {
-      const norm = normalizeMini(ev)
-      if (norm.id && norm.homeId && norm.awayId) byId.set(norm.id, norm)
+      const norm = normalizeEvent(ev)
+      if (norm.id && norm.home.id && norm.away.id) byId.set(norm.id, norm)
     }
   }
   return [...byId.values()].sort((a, b) => new Date(a.date) - new Date(b.date))
 }
 
+// 【2026-09-23・当初の「登場済みチームが再登場したら次の節」方式から変更】
+// プレミアリーグ/セリエA/CLでは正しく実際の節数と一致したが、ラ・リーガだけ
+// 38節のはずが41節に分裂する不具合が実データで発覚した(日程が週をまたいで
+// 分散しているカードがあり、素朴な貪欲法だと1つの節が誤って2〜3個に割れてしまうため)。
+// 総当たりのリーグ戦・CLのリーグフェーズは、どちらも「1節=全チームが必ず1試合ずつ」
+// という構造上、1節あたりの試合数が必ず(参加チーム数 ÷ 2)になる。これは日程の
+// 前後関係に一切左右されない不変の性質なので、日付順に並べたイベントを単純に
+// この固定サイズで区切るだけで、節番号は必ず実際の総節数と一致する
+// (例: 20チーム→1節10試合、380試合÷10=38節。36チーム・CLリーグフェーズ→1節18試合、
+// 144試合÷18=8節。いずれも実データで一致を確認済み)。
 function assignRounds(events) {
-  const roundOf = new Map()
-  let round = 1
-  let seen = new Set()
+  const teamIds = new Set()
   for (const ev of events) {
-    if (seen.has(ev.homeId) || seen.has(ev.awayId)) {
-      round += 1
-      seen = new Set()
-    }
-    seen.add(ev.homeId)
-    seen.add(ev.awayId)
-    roundOf.set(ev.id, round)
+    teamIds.add(ev.home.id)
+    teamIds.add(ev.away.id)
   }
-  return roundOf
+  const roundSize = Math.max(1, Math.floor(teamIds.size / 2))
+  events.forEach((ev, i) => {
+    ev.round = Math.floor(i / roundSize) + 1
+  })
+  return events
 }
 
 async function main() {
@@ -102,20 +141,15 @@ async function main() {
     try {
       const seasonEvents = await fetchSeasonEvents(leaguePath)
       if (seasonEvents.length === 0) {
-        console.log(`::warning::soccer-rounds ${key}: シーズンの試合が1件も取得できず、節番号の付与をスキップしました`)
+        console.log(`::warning::soccer-rounds ${key}: シーズンの試合が1件も取得できず、gamesの置き換えをスキップしました`)
         continue
       }
-      const roundOf = assignRounds(seasonEvents)
+      const withRounds = assignRounds(seasonEvents)
       const data = JSON.parse(readFileSync(path, 'utf-8'))
-      let patched = 0
-      for (const g of data.games || []) {
-        if (roundOf.has(g.id)) {
-          g.round = roundOf.get(g.id)
-          patched++
-        }
-      }
+      data.games = withRounds
       writeFileSync(path, JSON.stringify(data))
-      console.log(`ok: ${key} rounds patched=${patched}/${data.games?.length || 0} (season events=${seasonEvents.length})`)
+      const lastRound = withRounds[withRounds.length - 1]?.round
+      console.log(`ok: ${key} games replaced with full season (${withRounds.length}試合, 第1〜${lastRound}節)`)
     } catch (err) {
       console.log(`::error::FAILED soccer-rounds ${key}: ${err.message}`)
     }

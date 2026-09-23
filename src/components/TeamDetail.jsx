@@ -72,9 +72,16 @@ export default function TeamDetail({ sportPath, leaguePath, teamId, standingsRow
     }
   }, [sportPath, teamId])
 
-  const teamGames = (games || [])
+  // サッカーは節番号算出のためgamesにシーズン全試合(最大約380試合)が入るようになった
+  // (2026-09-23、fetch-soccer-rounds.mjs)。以前はfetch-espn-data.mjsの狭い取得範囲
+  // (前後数日〜数週間)のおかげで自然に短い一覧になっていたが、そのままだと「直近・予定の試合」に
+  // シーズン全試合が並んでしまうため、直近の既済5試合+今後5試合だけに絞る。
+  const allTeamGames = (games || [])
     .filter((g) => g.home.id === teamId || g.away.id === teamId)
     .sort((a, b) => new Date(a.date) - new Date(b.date))
+  const playedTeamGames = allTeamGames.filter((g) => g.isFinal)
+  const upcomingTeamGames = allTeamGames.filter((g) => !g.isFinal)
+  const teamGames = [...playedTeamGames.slice(-5), ...upcomingTeamGames.slice(0, 5)]
 
   const isSoccerStyle = sportPath === 'soccer'
   const teamName = detail?.team?.name || standingsRow?.team || ''
