@@ -4,6 +4,7 @@ import { allLeagueTargets } from '../data/leagues.js'
 import { rivalries } from '../data/rivalries.js'
 import { mlbPlayoffFormat, nbaPlayoffFormat, boxingTitleSystem, uclFormat } from '../data/championshipInfo.js'
 import { getFavoriteTeams, getFavoritePlayers, getFavoriteGames } from '../utils/favorites.js'
+import { translateArticleBody } from '../utils/geminiClient.js'
 import boxingData from '../data/boxingSchedule.json'
 import boxerProfiles from '../data/boxerProfiles.json'
 import TeamDetail from './TeamDetail.jsx'
@@ -66,6 +67,14 @@ export default function HomeView() {
   // タップするとその場で全文(翻訳できていれば日本語、できていなければ原文英語)を
   // 展開できるようにした。
   const [expandedNewsId, setExpandedNewsId] = useState(null)
+  // 本文の日本語訳は(2026-09-22、Geminiの無料枠クォータ節約のため)もう事前一括生成しない。
+  // 気になる記事をタップして展開した時だけ、その場でブラウザから直接Geminiを呼んで翻訳する。
+  // articleId -> 翻訳文 / 翻訳中フラグ / 失敗フラグ、をこの端末のセッション内だけで保持する
+  // (ページを再読み込みすれば消えるが、utils/geminiClient.js側でlocalStorageにもキャッシュ
+  // しているので同じ記事を再度開いた時はAPIを呼び直さない)。
+  const [clientBodyJa, setClientBodyJa] = useState({})
+  const [translatingBody, setTranslatingBody] = useState({})
+  const [translateBodyFailed, setTranslateBodyFailed] = useState({})
   // 推し(お気に入り)チーム・選手。ログイン機能が無いためこの端末のlocalStorageに保存されている。
   // 他のページ(TeamDetail)で☆を付けて戻ってくるとHomeViewが再マウントされるので、
   // マウント時に読み直せば最新の状態になる。
@@ -178,6 +187,25 @@ export default function HomeView() {
 
   function openTeam(sportPath, leaguePath, teamId) {
     setSelectedTeam({ sportPath, leaguePath, teamId })
+  }
+
+  // ニュースカードを展開した時に呼ぶ。既に翻訳済み/翻訳中ならAPIを呼ばずそのまま戻る。
+  function translateNewsBody(a) {
+    if (!a.body || a.bodyJa) return
+    if (clientBodyJa[a.id] || translatingBody[a.id]) return
+    setTranslatingBody((prev) => ({ ...prev, [a.id]: true }))
+    setTranslateBodyFailed((prev) => ({ ...prev, [a.id]: false }))
+    translateArticleBody(a.id, a.headline, a.body)
+      .then((text) => {
+        setClientBodyJa((prev) => ({ ...prev, [a.id]: text }))
+      })
+      .catch((err) => {
+        console.warn('[HomeView] client body translation failed', err)
+        setTranslateBodyFailed((prev) => ({ ...prev, [a.id]: true }))
+      })
+      .finally(() => {
+        setTranslatingBody((prev) => ({ ...prev, [a.id]: false }))
+      })
   }
 
   if (selectedTeam) {
@@ -757,13 +785,19 @@ export default function HomeView() {
           <div className="news-list">
             {news.map((a) => {
               const isExpanded = expandedNewsId === a.id
-              const bodyText = a.bodyJa || a.body
+              const bodyJa = a.bodyJa || clientBodyJa[a.id]
+              const bodyText = bodyJa || a.body
+              const isTranslating = Boolean(translatingBody[a.id]) && !bodyJa
               return (
                 <div key={a.id} className="news-card-container">
                   <button
                     type="button"
                     className="news-card-tap-area"
-                    onClick={() => setExpandedNewsId((prev) => (prev === a.id ? null : a.id))}
+                    onClick={() => {
+                      const opening = expandedNewsId !== a.id
+                      setExpandedNewsId((prev) => (prev === a.id ? null : a.id))
+                      if (opening) translateNewsBody(a)
+                    }}
                   >
                     {a.image && <img className="news-card-image" src={a.image} alt="" />}
                     <div className="news-card-body">
@@ -777,7 +811,13 @@ export default function HomeView() {
                   </button>
                   {isExpanded && bodyText && (
                     <div className="news-card-full-body">
-                      {!a.bodyJa && a.body && <div className="news-card-untranslated-note">※ 翻訳が間に合っておらず原文(英語)です</div>}
+                      {isTranslating && <div className="news-card-untranslated-note">🌐 翻訳中…(表示中は原文です)</div>}
+                      {!isTranslating && !bodyJa && translateBodyFailed[a.id] && (
+                        <div className="news-card-untranslated-note">※ 翻訳に失敗しました。原文(英語)を表示しています</div>
+                      )}
+                      {!isTranslating && !bodyJa && !translateBodyFailed[a.id] && (
+                        <div className="news-card-untranslated-note">※ 翻訳が間に合っておらず原文(英語)です</div>
+                      )}
                       {bodyText.split('\n\n').map((p, i) => (
                         <p key={i}>{p}</p>
                       ))}

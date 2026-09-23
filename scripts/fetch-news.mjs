@@ -101,16 +101,19 @@ function loadPreviousTranslations() {
   }
 }
 
-// 全文翻訳のキャッシュも同じ考え方(id+見出しが同じなら前回の翻訳を使い回す)。
-// 本文は毎回全文APIを叩き直すと呼び出し数が無駄に増えるため、bodyそのものも
-// 一緒にキャッシュしておき、本文取得も含めて「既存のものは触らない」ようにする。
+// 本文のキャッシュ(id+見出しが同じなら前回取得済みのbodyを使い回し、APIを叩き直さない)。
+// 本文の日本語訳は(2026-09-22、無料枠クォータ節約のため)もうこのスクリプトでは作らない。
+// ユーザーがニュースカードをタップして全文を読もうとした時に、ブラウザから直接Geminiを
+// 呼び出してその場で翻訳する方式に変更した(src/utils/geminiClient.js)。見出し・要約は
+// 記事一覧を開いた瞬間に全員が目にするため引き続きここで事前翻訳するが、本文は実際に
+// 読まれる記事だけがGeminiのクォータを消費するようにして、無駄遣いを減らす狙い。
 function loadPreviousBodies() {
   if (!existsSync(NEWS_JSON_PATH)) return new Map()
   try {
     const prev = JSON.parse(readFileSync(NEWS_JSON_PATH, 'utf8'))
     const map = new Map()
     for (const a of prev.articles || []) {
-      if (a.body) map.set(a.id, { headline: a.headline, body: a.body, bodyJa: a.bodyJa || '' })
+      if (a.body) map.set(a.id, { headline: a.headline, body: a.body })
     }
     return map
   } catch {
@@ -142,36 +145,6 @@ ${JSON.stringify(input)}`
       const id = item?.id != null ? String(item.id) : items[i] ? String(items[i].id) : null
       if (id && item?.headline) map.set(id, item)
     })
-  }
-  return map
-}
-
-// 本文は見出し・要約よりずっと長いため、1回のGemini呼び出しに詰め込みすぎると
-// レスポンスが大きくなりすぎて失敗しやすくなる。CHUNK_SIZE件ずつに分けて呼び出す
-// (呼び出し回数は増えるが、見出し翻訳と同じく「取れる範囲だけ確実に」を優先する)。
-const BODY_CHUNK_SIZE = 4
-
-async function translateBodiesBatch(items) {
-  if (items.length === 0) return new Map()
-  const map = new Map()
-  for (let i = 0; i < items.length; i += BODY_CHUNK_SIZE) {
-    const chunk = items.slice(i, i + BODY_CHUNK_SIZE)
-    const input = chunk.map((a) => ({ id: String(a.id), body: a.body }))
-    const prompt = `以下は英語のスポーツニュース記事本文の配列です。それぞれ自然な日本語に翻訳してください。
-リンクや選手名などの固有名詞はそのまま活かしつつ、読みやすい日本語にしてください。
-出力は入力と同じ件数・同じ順序のJSON配列のみとし、他の説明・前置き・コードブロック記号は一切付けないでください。
-各要素の形式: {"id": "入力と同じid", "body": "翻訳した本文(段落は\\n\\nで区切る)"}
-
-入力:
-${JSON.stringify(input)}`
-    const text = await callGemini(prompt, { asJson: true })
-    const parsed = parseGeminiJson(text)
-    if (Array.isArray(parsed)) {
-      parsed.forEach((item, idx) => {
-        const id = item?.id != null ? String(item.id) : chunk[idx] ? String(chunk[idx].id) : null
-        if (id && item?.body) map.set(id, item.body)
-      })
-    }
   }
   return map
 }
@@ -227,8 +200,9 @@ const BODY_FETCH_CONCURRENCY = 4
 // 1回あたりの実行時間を抑える(下のmain()側で見出し翻訳を先に保存する対策と合わせて二重の対策)。
 const MAX_NEW_BODIES_PER_RUN = 10
 
-// 全文本体の取得+翻訳。見出し・要約とは別のAPI呼び出しが必要なため、独立した関数にしている。
+// 全文本体(英語)の取得。見出し・要約とは別のAPI呼び出しが必要なため、独立した関数にしている。
 // 既に本文を取得済み(id+見出しが同じ)ならAPIを叩き直さず前回の結果を使い回す。
+// 翻訳はここでは行わない(クリック時にブラウザ側でその場で翻訳する。上のコメント参照)。
 async function attachBodies(articles) {
   const cache = loadPreviousBodies()
   const needsFetch = []
@@ -236,7 +210,7 @@ async function attachBodies(articles) {
   for (const a of articles) {
     const cached = cache.get(a.id)
     if (cached && cached.headline === a.headline) {
-      byId.set(a.id, { body: cached.body, bodyJa: cached.bodyJa })
+      byId.set(a.id, { body: cached.body })
     } else {
       needsFetch.push(a)
     }
@@ -251,16 +225,14 @@ async function attachBodies(articles) {
       id: a.id,
       body: await fetchArticleBody(a.id)
     }))
-    const toTranslate = bodies.filter((b) => b.body)
-    const translatedMap = hasGeminiKey() ? await translateBodiesBatch(toTranslate) : new Map()
     for (const b of bodies) {
-      byId.set(b.id, { body: b.body, bodyJa: translatedMap.get(String(b.id)) || '' })
+      byId.set(b.id, { body: b.body })
     }
   }
 
   return articles.map((a) => {
     const b = byId.get(a.id)
-    return b ? { ...a, body: b.body, bodyJa: b.bodyJa } : a
+    return b ? { ...a, body: b.body } : a
   })
 }
 
@@ -308,6 +280,10 @@ async function main() {
     throw new Error('ニュース記事が1件も取得できませんでした')
   }
 
+  // 見出し・要約は記事一覧を開いた瞬間に全員の目に入るので、毎回(15分おき)必ず翻訳を試みる
+  // (2026-09-22、「見出しだけは完全に翻訳してほしい」との要望)。1回のGemini呼び出しで
+  // 未翻訳分をまとめて処理するため(translateArticlesBatch参照)、新着が無い実行では
+  // Geminiを呼ぶことさえない=クォータもほぼ消費しない。
   const translatedHeadlines = await translateArticles(all)
   if (hasGeminiKey()) {
     const newlyTranslated = translatedHeadlines.filter((a) => a.headlineJa).length
@@ -316,21 +292,18 @@ async function main() {
     console.log('GEMINI_API_KEY未設定のため翻訳はスキップ(英語のまま表示されます)')
   }
 
-  // 【重要】本文取得・翻訳(この後)を始める前に、ここで一度書き出しておく。
-  // 本文処理は時間がかかり、次の15分おきのcronに追い越されてジョブごと
+  // 【重要】本文取得(この後)を始める前に、ここで一度書き出しておく。
+  // 本文取得は時間がかかり、次の15分おきのcronに追い越されてジョブごと
   // キャンセルされることがある(concurrency: cancel-in-progress: true)。
   // 最後に1回だけ書き出す方式だと、そうなった場合に見出し翻訳の分まで
   // 消えてしまっていた(2026-09-18、見出し翻訳が0/26に戻る不具合として発覚)。
   writeFileSync(NEWS_JSON_PATH, JSON.stringify({ articles: translatedHeadlines, updatedAt: new Date().toISOString() }))
   console.log('interim save done (headlines committed before starting body fetch)')
 
-  // 全文本体+翻訳(2026-09-18、「見出し・要約しか翻訳されない」との指摘で追加)。
-  // 本文取得はニュース一覧APIとは別のAPIコールが必要なため、見出し翻訳とは独立して行う。
+  // 全文本体(英語)の取得。本文取得はニュース一覧APIとは別のAPIコールが必要なため、
+  // 見出し翻訳とは独立して行う。本文の日本語訳はここでは作らず、クリック時にブラウザ側で
+  // その場で翻訳する(src/utils/geminiClient.js)。
   const translated = await attachBodies(translatedHeadlines)
-  if (hasGeminiKey()) {
-    const withBody = translated.filter((a) => a.bodyJa).length
-    console.log(`body translation: ${withBody}/${translated.length} articles have 全文日本語`)
-  }
 
   const output = { articles: translated, updatedAt: new Date().toISOString() }
   writeFileSync(NEWS_JSON_PATH, JSON.stringify(output))
