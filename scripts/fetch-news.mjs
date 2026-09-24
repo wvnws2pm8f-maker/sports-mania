@@ -11,6 +11,18 @@ const NEWS_JSON_PATH = new URL('../public/data/news.json', import.meta.url)
 // リーグごとに取得して sportPath 単位でまとめる(サッカーは複数リーグを統合・重複除去)。
 const SOCCER_LEAGUES = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'uefa.champions']
 
+// 翻訳対象スポーツ(2026-09-24、「Geminiのクォータが厳しいので、今一番盛り上がっている
+// スポーツだけ確実に翻訳したい」との要望で追加)。ここに含まれるsportPathの記事だけを
+// Geminiへの翻訳対象にする('soccer' | 'basketball' | 'baseball' | 'football')。
+// 空配列にすると全スポーツを翻訳対象にする(この仕組みが無かった以前の挙動に戻る)。
+// クォータ(1日に翻訳できる件数)は限られているので、ここは「時期によって手動で書き換える」
+// 運用を想定している(例: 今はMLBがポストシーズン直前で一番盛り上がっているのでbaseballのみ、
+// MLBが終わってNBA開幕が近づいたらbasketballに切り替える、等)。
+// 【重要】ここに無いスポーツの記事も取得・一覧表示自体はこれまで通り行われる(見出しが
+// 英語のまま表示されるだけ)。また、優先スポーツから外れた後も、既に翻訳済み(前回の結果に
+// キャッシュされている)記事の日本語見出しはそのまま使い続けられる(無駄にならない)。
+const PRIORITY_SPORTS = ['baseball']
+
 // 【重要】fetchにタイムアウトを設定していなかったため、1件でも通信が詰まると
 // Node標準のfetchはデフォルトでは(事実上)無期限に待ち続けてしまい、ワークフロー側の
 // timeout-minutes: 8いっぱいまで固まって強制終了→本文の翻訳結果が一切保存されない、
@@ -102,11 +114,11 @@ function loadPreviousTranslations() {
 }
 
 // 本文のキャッシュ(id+見出しが同じなら前回取得済みのbodyを使い回し、APIを叩き直さない)。
-// 本文の日本語訳は(2026-09-22、無料枠クォータ節約のため)もうこのスクリプトでは作らない。
-// ユーザーがニュースカードをタップして全文を読もうとした時に、ブラウザから直接Geminiを
-// 呼び出してその場で翻訳する方式に変更した(src/utils/geminiClient.js)。見出し・要約は
-// 記事一覧を開いた瞬間に全員が目にするため引き続きここで事前翻訳するが、本文は実際に
-// 読まれる記事だけがGeminiのクォータを消費するようにして、無駄遣いを減らす狙い。
+// 本文の日本語訳はもう作らない(2026-09-23、Geminiの無料枠クォータが慢性的に枯渇しており
+// リトライしても解決しないと判明したため)。本文は常に原文(英語)のまま表示し、読みたい人には
+// 端末側の翻訳機能(Safari/iPhoneの「翻訳」機能等、Geminiのクォータと無関係)を案内する
+// (src/components/HomeView.jsx参照)。見出し・要約だけは記事一覧を開いた瞬間に全員が
+// 目にするため引き続きここで事前翻訳する。
 function loadPreviousBodies() {
   if (!existsSync(NEWS_JSON_PATH)) return new Map()
   try {
@@ -158,6 +170,9 @@ async function translateArticles(articles) {
     const cached = cache.get(a.id)
     if (cached && cached.headline === a.headline) {
       byId.set(a.id, { ...a, headlineJa: cached.headlineJa, descriptionJa: cached.descriptionJa })
+    } else if (PRIORITY_SPORTS.length > 0 && !PRIORITY_SPORTS.includes(a.sport)) {
+      // 優先スポーツ以外は翻訳対象から外す(見出しは英語のまま。クォータ節約)
+      continue
     } else {
       toTranslate.push(a)
     }
@@ -287,7 +302,8 @@ async function main() {
   const translatedHeadlines = await translateArticles(all)
   if (hasGeminiKey()) {
     const newlyTranslated = translatedHeadlines.filter((a) => a.headlineJa).length
-    console.log(`translation: ${newlyTranslated}/${translatedHeadlines.length} articles have 日本語`)
+    const priorityNote = PRIORITY_SPORTS.length > 0 ? ` (翻訳対象: ${PRIORITY_SPORTS.join(', ')}のみ)` : ''
+    console.log(`translation: ${newlyTranslated}/${translatedHeadlines.length} articles have 日本語${priorityNote}`)
   } else {
     console.log('GEMINI_API_KEY未設定のため翻訳はスキップ(英語のまま表示されます)')
   }
