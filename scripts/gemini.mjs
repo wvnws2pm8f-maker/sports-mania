@@ -16,6 +16,12 @@ export function hasGeminiKey() {
 // アクセスし続けることが無いようにする(2026-09-22、本文翻訳が常に0件だった問題の対策の一部)。
 let quotaExhaustedThisRun = false
 
+// 呼び出し側(fetch-news.mjs)が「今回クォータ超過にぶつかったか」を見て、次回以降しばらく
+// 翻訳の試行自体をスキップする(無駄打ちを減らす)バックオフ判断に使う。
+export function hasQuotaExhausted() {
+  return quotaExhaustedThisRun
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
