@@ -2,7 +2,7 @@
 // ESPNは順位表・試合結果だけでなく、実際の編集記事(見出し・要約・写真)も公開している。
 // これを使うことで「結果の寄せ集め」ではなく「今スポーツ界で何が起きているか」を伝えられる。
 import { writeFileSync, readFileSync, existsSync } from 'node:fs'
-import { callGemini, parseGeminiJson, hasGeminiKey } from './gemini.mjs'
+import { callGemini, parseGeminiJson, hasGeminiKey, hasQuotaExhausted } from './gemini.mjs'
 
 const BASE = 'https://site.api.espn.com/apis/site/v2/sports'
 const NEWS_JSON_PATH = new URL('../public/data/news.json', import.meta.url)
@@ -10,6 +10,12 @@ const NEWS_JSON_PATH = new URL('../public/data/news.json', import.meta.url)
 // ニュースは(順位表と違って)リーグ横断のエンドポイントが無いので、
 // リーグごとに取得して sportPath 単位でまとめる(サッカーは複数リーグを統合・重複除去)。
 const SOCCER_LEAGUES = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'uefa.champions']
+
+// MLB(baseball)のニュースはホーム画面に出さない(2026-09-24、「プレーオフは自分で追うので
+// MLBの記事欄は不要、その分他スポーツの見出し翻訳に無駄打ちなく集中したい」との要望)。
+// 対象から外すと、Geminiに翻訳依頼する記事の母数自体が減り、新着発生の頻度(=Geminiを
+// 呼ぶ頻度)も下がる。need欄に戻したくなったら 'baseball' を配列に足すだけでよい。
+const EXCLUDED_SPORTS = ['baseball']
 
 // 【重要】fetchにタイムアウトを設定していなかったため、1件でも通信が詰まると
 // Node標準のfetchはデフォルトでは(事実上)無期限に待ち続けてしまい、ワークフロー側の
@@ -101,12 +107,31 @@ function loadPreviousTranslations() {
   }
 }
 
+// クォータ超過を検知した時の「無駄打ち防止バックオフ」の状態をnews.jsonに永続化する
+// (2026-09-24、「クォータが回復するまでは翻訳を試みず、回復したら見出し翻訳を再開したい」
+// との要望で追加)。実行のたびに毎回Geminiを叩いて429を量産するのではなく、クォータ超過を
+// 検知したら次のBACKOFF_INITIAL_MINUTES分は翻訳自体を試みず、時間が来たら1回だけ
+// 様子見の試行をする。それでも失敗すれば待ち時間を倍にして(最大BACKOFF_MAX_MINUTES分)
+// 繰り返し、成功(またはクォータ超過に遭遇しなかった)回でリセットする。
+const BACKOFF_INITIAL_MINUTES = 60
+const BACKOFF_MAX_MINUTES = 240
+
+function loadGeminiBackoff() {
+  if (!existsSync(NEWS_JSON_PATH)) return null
+  try {
+    const prev = JSON.parse(readFileSync(NEWS_JSON_PATH, 'utf8'))
+    return prev.geminiBackoff || null // { minutes, untilISO }
+  } catch {
+    return null
+  }
+}
+
 // 本文のキャッシュ(id+見出しが同じなら前回取得済みのbodyを使い回し、APIを叩き直さない)。
-// 本文の日本語訳は(2026-09-22、無料枠クォータ節約のため)もうこのスクリプトでは作らない。
-// ユーザーがニュースカードをタップして全文を読もうとした時に、ブラウザから直接Geminiを
-// 呼び出してその場で翻訳する方式に変更した(src/utils/geminiClient.js)。見出し・要約は
-// 記事一覧を開いた瞬間に全員が目にするため引き続きここで事前翻訳するが、本文は実際に
-// 読まれる記事だけがGeminiのクォータを消費するようにして、無駄遣いを減らす狙い。
+// 本文の日本語訳はもう作らない(2026-09-23、Geminiの無料枠クォータが慢性的に枯渇しており
+// リトライしても解決しないと判明したため)。本文は常に原文(英語)のまま表示し、読みたい人には
+// 端末側の翻訳機能(Safari/iPhoneの「翻訳」機能等、Geminiのクォータと無関係)を案内する
+// (src/components/HomeView.jsx参照)。見出し・要約だけは記事一覧を開いた瞬間に全員が
+// 目にするため引き続きここで事前翻訳する。
 function loadPreviousBodies() {
   if (!existsSync(NEWS_JSON_PATH)) return new Map()
   try {
@@ -149,7 +174,9 @@ ${JSON.stringify(input)}`
   return map
 }
 
-async function translateArticles(articles) {
+// allowNewCalls: false の時は、既に翻訳済み(キャッシュ)の記事の引き継ぎだけ行い、
+// 新規記事のGemini呼び出しは行わない(クォータ超過によるバックオフ中に使う。下のmain()参照)。
+async function translateArticles(articles, allowNewCalls) {
   if (!hasGeminiKey()) return articles
   const cache = loadPreviousTranslations()
   const toTranslate = []
@@ -158,7 +185,7 @@ async function translateArticles(articles) {
     const cached = cache.get(a.id)
     if (cached && cached.headline === a.headline) {
       byId.set(a.id, { ...a, headlineJa: cached.headlineJa, descriptionJa: cached.descriptionJa })
-    } else {
+    } else if (allowNewCalls) {
       toTranslate.push(a)
     }
   }
@@ -237,7 +264,7 @@ async function attachBodies(articles) {
 }
 
 async function main() {
-  const bySport = { soccer: new Map(), basketball: new Map(), baseball: new Map(), football: new Map() }
+  const bySport = { soccer: new Map(), basketball: new Map(), football: new Map() }
 
   for (const leaguePath of SOCCER_LEAGUES) {
     try {
@@ -251,9 +278,9 @@ async function main() {
 
   for (const [sportPath, leaguePath] of [
     ['basketball', 'nba'],
-    ['baseball', 'mlb'],
     ['football', 'nfl']
   ]) {
+    if (EXCLUDED_SPORTS.includes(sportPath)) continue
     try {
       const articles = await fetchNewsFor(sportPath, leaguePath)
       for (const a of articles) bySport[sportPath].set(a.id, a)
@@ -280,11 +307,30 @@ async function main() {
     throw new Error('ニュース記事が1件も取得できませんでした')
   }
 
-  // 見出し・要約は記事一覧を開いた瞬間に全員の目に入るので、毎回(15分おき)必ず翻訳を試みる
-  // (2026-09-22、「見出しだけは完全に翻訳してほしい」との要望)。1回のGemini呼び出しで
-  // 未翻訳分をまとめて処理するため(translateArticlesBatch参照)、新着が無い実行では
-  // Geminiを呼ぶことさえない=クォータもほぼ消費しない。
-  const translatedHeadlines = await translateArticles(all)
+  // 見出し・要約は記事一覧を開いた瞬間に全員の目に入るので、クォータ超過によるバックオフ中
+  // でなければ毎回(15分おき)翻訳を試みる。1回のGemini呼び出しで未翻訳分をまとめて処理する
+  // ため(translateArticlesBatch参照)、新着が無い実行ではGeminiを呼ぶことさえない。
+  const backoff = loadGeminiBackoff()
+  const now = Date.now()
+  const inBackoff = hasGeminiKey() && Boolean(backoff) && now < new Date(backoff.untilISO).getTime()
+  if (inBackoff) {
+    const waitMin = Math.ceil((new Date(backoff.untilISO).getTime() - now) / 60000)
+    console.log(`翻訳: クォータ超過中のため試行をスキップ(次の様子見まであと約${waitMin}分)`)
+  }
+
+  const translatedHeadlines = await translateArticles(all, !inBackoff)
+
+  let geminiBackoff = backoff
+  if (hasGeminiKey() && !inBackoff) {
+    if (hasQuotaExhausted()) {
+      const minutes = Math.min((backoff?.minutes || BACKOFF_INITIAL_MINUTES / 2) * 2, BACKOFF_MAX_MINUTES)
+      geminiBackoff = { minutes, untilISO: new Date(now + minutes * 60000).toISOString() }
+      console.log(`翻訳: クォータ超過を検知。次は約${minutes}分後まで試行をスキップします`)
+    } else {
+      geminiBackoff = null // 成功、またはクォータ超過に遭遇しなかった(=新着自体が無かった)のでリセット
+    }
+  }
+
   if (hasGeminiKey()) {
     const newlyTranslated = translatedHeadlines.filter((a) => a.headlineJa).length
     console.log(`translation: ${newlyTranslated}/${translatedHeadlines.length} articles have 日本語`)
@@ -297,15 +343,18 @@ async function main() {
   // キャンセルされることがある(concurrency: cancel-in-progress: true)。
   // 最後に1回だけ書き出す方式だと、そうなった場合に見出し翻訳の分まで
   // 消えてしまっていた(2026-09-18、見出し翻訳が0/26に戻る不具合として発覚)。
-  writeFileSync(NEWS_JSON_PATH, JSON.stringify({ articles: translatedHeadlines, updatedAt: new Date().toISOString() }))
+  writeFileSync(
+    NEWS_JSON_PATH,
+    JSON.stringify({ articles: translatedHeadlines, updatedAt: new Date().toISOString(), geminiBackoff })
+  )
   console.log('interim save done (headlines committed before starting body fetch)')
 
   // 全文本体(英語)の取得。本文取得はニュース一覧APIとは別のAPIコールが必要なため、
-  // 見出し翻訳とは独立して行う。本文の日本語訳はここでは作らず、クリック時にブラウザ側で
-  // その場で翻訳する(src/utils/geminiClient.js)。
+  // 見出し翻訳とは独立して行う。本文の日本語訳はここでは作らない(常に原文表示。
+  // src/components/HomeView.jsxのコメント参照)。
   const translated = await attachBodies(translatedHeadlines)
 
-  const output = { articles: translated, updatedAt: new Date().toISOString() }
+  const output = { articles: translated, updatedAt: new Date().toISOString(), geminiBackoff }
   writeFileSync(NEWS_JSON_PATH, JSON.stringify(output))
   console.log(`done. total articles=${translated.length}`)
 }
