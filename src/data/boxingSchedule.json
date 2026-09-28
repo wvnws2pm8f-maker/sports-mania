@@ -108,6 +108,13 @@
     },
     {
       "date": "2026-10-17",
+      "venue": "The Chelsea at The Cosmopolitan of Las Vegas",
+      "cardName": "ブランドン・フィゲロア vs 亀田和毅（WBA世界フェザー級タイトルマッチ、フィゲロアの初防衛戦・亀田は世界3階級制覇に挑戦）",
+      "fighters": ["ブランドン・フィゲロア", "亀田和毅"],
+      "broadcast": "DAZN・TNT"
+    },
+    {
+      "date": "2026-10-17",
       "venue": "O2 Arena, Greenwich, London",
       "cardName": "Daniel Dubois vs Fabio Wardley（WBO世界ヘビー級王座防衛戦）",
       "fighters": ["Daniel Dubois", "Fabio Wardley"],
