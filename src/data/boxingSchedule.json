@@ -119,6 +119,41 @@
       "cardName": "Daniel Dubois vs Fabio Wardley（WBO世界ヘビー級王座防衛戦）",
       "fighters": ["Daniel Dubois", "Fabio Wardley"],
       "broadcast": "DAZN PPV"
+    },
+    {
+      "date": "2026-10-31",
+      "venue": "ANB Arena, Riyadh",
+      "cardName": "Canelo Álvarez vs Christian Mbilli（WBC世界スーパーミドル級タイトルマッチ、カネロが王座奪還に挑戦）",
+      "fighters": ["Canelo Álvarez", "Christian Mbilli"],
+      "broadcast": "DAZN PPV"
+    },
+    {
+      "date": "2026-11-07",
+      "venue": "AO Arena, Manchester",
+      "cardName": "Joshua Buatsi vs Willy Hutchinson（WBC暫定ライトヘビー級王座決定戦、2024年の再戦）",
+      "fighters": ["Joshua Buatsi", "Willy Hutchinson"],
+      "broadcast": "DAZN"
+    },
+    {
+      "date": "2026-11-08",
+      "venue": "College Park Center, Arlington, Texas",
+      "cardName": "スカイ・ニコルソン vs 吉田実代（WBC世界スーパーバンタム級タイトルマッチ）",
+      "fighters": ["スカイ・ニコルソン", "吉田実代"],
+      "broadcast": "DAZN・ESPN"
+    },
+    {
+      "date": "2026-12-11",
+      "venue": "Principality Stadium, Cardiff",
+      "cardName": "Tyson Fury vs Anthony Joshua（WBA世界ヘビー級タイトルマッチ、英国ヘビー級頂上決戦）",
+      "fighters": ["Tyson Fury", "Anthony Joshua"],
+      "broadcast": "Netflix"
+    },
+    {
+      "date": "2026-12-19",
+      "venue": "SSE Arena, Belfast",
+      "cardName": "Anthony Cacace vs Nick Ball（WBA世界スーパーフェザー級タイトルマッチ、地元ベルファストでの防衛戦）",
+      "fighters": ["Anthony Cacace", "Nick Ball"],
+      "broadcast": "DAZN"
     }
   ]
 }
