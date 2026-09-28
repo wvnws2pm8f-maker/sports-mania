@@ -1450,6 +1450,116 @@ img {
   border-top: 1px solid #263354;
 }
 
+/* ---------- MLBプレーオフ(トーナメント表) ---------- */
+.playoff-league-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #6c7a99;
+  margin: 10px 0 6px;
+}
+
+.playoff-series-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.playoff-series-card {
+  background: #10192c;
+  border: 1px solid #263354;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.playoff-series-team-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.playoff-series-team-row.is-winner .playoff-series-team-name {
+  color: #4ee1a0;
+}
+
+.playoff-series-team-name {
+  font-weight: 700;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jp-player-badge {
+  font-size: 10.5px;
+  color: #ffd166;
+  background: #3a2e0a;
+  border-radius: 6px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+.playoff-series-score {
+  font-weight: 800;
+  font-size: 16px;
+  min-width: 18px;
+  text-align: right;
+}
+
+.playoff-series-status {
+  font-size: 12px;
+  color: #4ee1a0;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.playoff-series-games {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #1c2740;
+}
+
+.playoff-series-game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: #0b1120;
+  border: 1px solid #263354;
+  border-radius: 10px;
+  padding: 6px 8px;
+  font-size: 10.5px;
+  color: #c7d0e6;
+}
+
+.playoff-series-game:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.playoff-series-game:not(:disabled) {
+  cursor: pointer;
+}
+
+.playoff-series-game.is-live {
+  border-color: #ff5c7a;
+}
+
+.playoff-series-game-num {
+  font-weight: 700;
+  color: #6c7a99;
+}
+
+.playoff-series-game-score {
+  font-weight: 800;
+  color: #e7ecf7;
+}
+
 .race-row {
   display: flex;
   gap: 10px;

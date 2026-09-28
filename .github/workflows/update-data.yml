@@ -69,6 +69,14 @@ jobs:
         run: node scripts/fetch-nfl-weeks.mjs
         continue-on-error: true
 
+      # MLBプレーオフのトーナメント表・シリーズ何勝何敗(2026-09-28の要望)。
+      # 通常のスコアボード取得(直近数日分のみ)とは別に、ポストシーズン期間(9〜12月)を
+      # まるごと取得してラウンド別に組み合わせを再構成する。オフシーズン中はESPN側に
+      # 該当データが無いだけで空の結果になるだけなので、通年このステップを回しっぱなしにしてよい。
+      - name: Fetch MLB playoff bracket
+        run: node scripts/fetch-mlb-playoffs.mjs
+        continue-on-error: true
+
       # 試合詳細(得点者・出場選手・打撃/投手成績)。「Fetch ESPN data」が書き出した
       # 直近の試合一覧を読んで、終了済みの試合だけ追加でsummaryを取得する。
       # フィールド名を実データで検証できていない部分があるため、失敗してもコミット自体は

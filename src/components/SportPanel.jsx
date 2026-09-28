@@ -6,13 +6,19 @@ import GameList from './GameList.jsx'
 import ArticleList from './ArticleList.jsx'
 import TeamDetail from './TeamDetail.jsx'
 import GameDetail from './GameDetail.jsx'
+import MlbPlayoffView from './MlbPlayoffView.jsx'
 
-const SUB_TABS = ['順位表', '試合', '読み物']
+const BASE_SUB_TABS = ['順位表', '試合', '読み物']
+// MLBだけ「プレーオフ」タブを追加(2026-09-28の要望: トーナメント表・シリーズ何勝何敗・
+// 日本人選手を目立たせたい)。他競技はレギュラーシーズンの日付範囲取得だけでは
+// プレーオフ全体のブラケットが分からないため、まずMLB専用の対応にしている。
+const MLB_SUB_TABS = ['順位表', '試合', 'プレーオフ', '読み物']
 
 // サッカー/NBA/MLB/NFL共通の画面。順位表・試合・読み物のサブタブを持つ。
 // renderGamesTab: 「試合」タブの中身を差し替えたい場合に渡す(例: NFLの週別表示)。
 // 省略時は従来どおり素のGameListを表示する。
 export default function SportPanel({ sportPath, leaguePath, articles, renderGamesTab }) {
+  const SUB_TABS = leaguePath === 'mlb' ? MLB_SUB_TABS : BASE_SUB_TABS
   const [subTab, setSubTab] = useState('順位表')
   const [standings, setStandings] = useState(null)
   const [games, setGames] = useState(null)
@@ -166,6 +172,7 @@ export default function SportPanel({ sportPath, leaguePath, articles, renderGame
         ) : (
           <GameList games={games} sportPath={sportPath} leaguePath={leaguePath} onSelectGame={setSelectedGame} />
         ))}
+      {subTab === 'プレーオフ' && !error && <MlbPlayoffView onSelectGame={setSelectedGame} />}
       {subTab === '読み物' && <ArticleList articles={articles} />}
     </div>
   )

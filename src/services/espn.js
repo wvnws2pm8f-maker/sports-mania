@@ -112,6 +112,12 @@ export function getSeasonMilestones() {
   return getSingleFile('season-milestones.json')
 }
 
+// MLBプレーオフの組み合わせ・シリーズ何勝何敗。public/data/mlb-playoffs.json を読む
+// (scripts/fetch-mlb-playoffs.mjsが取得。プレーオフ開幕前の要望(2026-09-28)で追加)。
+export function getMlbPlayoffs() {
+  return getSingleFile('mlb-playoffs.json')
+}
+
 // チーム詳細(ロスター等)。public/data/team/<sportPath>-<teamId>.json を読む。
 // ロスターは1日1回更新(scripts/fetch-team-details.mjs)なので、標準のfetchキャッシュのままでよい。
 const teamCache = new Map()
