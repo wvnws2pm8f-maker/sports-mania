@@ -3,6 +3,7 @@ import { getMlbPlayoffs } from '../services/espn.js'
 import { mlbPlayoffFormat } from '../data/championshipInfo.js'
 import japanesePlayersData from '../data/mlbJapanesePlayers.json'
 import { translateGameStatus } from '../utils/espnLabels.js'
+import { highlightSearchUrl } from '../utils/highlightLink.js'
 
 // MLBプレーオフを「トーナメント表」として楽しめるように追加(2026-09-28の要望:
 // 対戦組み合わせ一覧・シリーズの何勝何敗・ラウンド別分類・日程・日本人選手を目立たせたい)。
@@ -53,21 +54,35 @@ function SeriesCard({ series, onSelectGame }) {
       )}
       <div className="playoff-series-games">
         {games.map((g) => (
-          <button
-            key={g.id}
-            type="button"
-            className={`playoff-series-game ${g.isLive ? 'is-live' : ''}`}
-            onClick={() => g.isFinal && onSelectGame && onSelectGame(g)}
-            disabled={!g.isFinal}
-          >
-            <span className="playoff-series-game-num">Game{g.gameNum}</span>
-            <span>{g.isFinal || g.isLive ? translateGameStatus(g.statusDetail) : formatDate(g.date)}</span>
-            {(g.isFinal || g.isLive) && (
-              <span className="playoff-series-game-score">
-                {g.away.score}-{g.home.score}
-              </span>
+          <div key={g.id} className={`playoff-series-game ${g.isLive ? 'is-live' : ''}`}>
+            <button
+              type="button"
+              className="playoff-series-game-tap"
+              onClick={() => g.isFinal && onSelectGame && onSelectGame(g)}
+              disabled={!g.isFinal}
+            >
+              <span className="playoff-series-game-num">Game{g.gameNum}</span>
+              <span>{g.isFinal || g.isLive ? translateGameStatus(g.statusDetail) : formatDate(g.date)}</span>
+              {(g.isFinal || g.isLive) && (
+                <span className="playoff-series-game-score">
+                  {g.away.score}-{g.home.score}
+                </span>
+              )}
+            </button>
+            {/* 終了した試合はハイライト動画を探せるように(2026-09-30の要望、
+                GameList.jsx/BoxingView.jsxと同じYouTube検索リンク方式) */}
+            {g.isFinal && (
+              <a
+                className="playoff-series-game-highlight"
+                href={highlightSearchUrl(`${g.away.team} vs ${g.home.team} highlights`)}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="ハイライトを見る"
+              >
+                🎥
+              </a>
             )}
-          </button>
+          </div>
         ))}
       </div>
     </div>

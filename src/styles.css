@@ -1528,7 +1528,7 @@ img {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   background: #0b1120;
   border: 1px solid #263354;
   border-radius: 10px;
@@ -1537,17 +1537,29 @@ img {
   color: #c7d0e6;
 }
 
-.playoff-series-game:disabled {
+.playoff-series-game.is-live {
+  border-color: #ff5c7a;
+}
+
+.playoff-series-game-tap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.playoff-series-game-tap:disabled {
   cursor: default;
   opacity: 0.75;
 }
 
-.playoff-series-game:not(:disabled) {
+.playoff-series-game-tap:not(:disabled) {
   cursor: pointer;
-}
-
-.playoff-series-game.is-live {
-  border-color: #ff5c7a;
 }
 
 .playoff-series-game-num {
@@ -1558,6 +1570,16 @@ img {
 .playoff-series-game-score {
   font-weight: 800;
   color: #e7ecf7;
+}
+
+.playoff-series-game-highlight {
+  font-size: 12px;
+  text-decoration: none;
+  line-height: 1;
+  padding-top: 2px;
+  border-top: 1px solid #1c2740;
+  width: 100%;
+  text-align: center;
 }
 
 .race-row {
