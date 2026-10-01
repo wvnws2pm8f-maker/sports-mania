@@ -4,6 +4,7 @@ import { mlbPlayoffFormat } from '../data/championshipInfo.js'
 import japanesePlayersData from '../data/mlbJapanesePlayers.json'
 import { translateGameStatus } from '../utils/espnLabels.js'
 import { highlightSearchUrl } from '../utils/highlightLink.js'
+import MlbPlayoffBracket from './MlbPlayoffBracket.jsx'
 
 // MLBプレーオフを「トーナメント表」として楽しめるように追加(2026-09-28の要望:
 // 対戦組み合わせ一覧・シリーズの何勝何敗・ラウンド別分類・日程・日本人選手を目立たせたい)。
@@ -145,9 +146,13 @@ export default function MlbPlayoffView({ onSelectGame }) {
 
   return (
     <div>
-      <div className="playoff-format-tip" style={{ marginBottom: 14 }}>
+      <div className="standings-group-title">🏆 トーナメント表</div>
+      <MlbPlayoffBracket rounds={data.rounds} />
+
+      <div className="playoff-format-tip" style={{ margin: '14px 0' }}>
         {mlbPlayoffFormat.tip}
       </div>
+      <div className="standings-group-title">📋 ラウンド別の詳細(日程・ハイライト)</div>
       {[...byName.entries()].map(([name, roundsForName]) => (
         <div key={name} className="standings-group">
           <div className="standings-group-title">{name}</div>

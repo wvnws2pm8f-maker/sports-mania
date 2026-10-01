@@ -1582,6 +1582,121 @@ img {
   text-align: center;
 }
 
+/* ---------- MLBプレーオフ 横長トーナメント表 ---------- */
+.bracket-scroll {
+  overflow-x: auto;
+  margin-bottom: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bracket-rounds {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: max-content;
+  padding-bottom: 8px;
+}
+
+.bracket-league-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.bracket-league-heading {
+  font-size: 11px;
+  font-weight: 800;
+  color: #6c7a99;
+  margin-bottom: 6px;
+}
+
+.bracket-league-row {
+  display: flex;
+  gap: 14px;
+}
+
+.bracket-league-row-reverse {
+  flex-direction: row-reverse;
+}
+
+.bracket-col {
+  display: flex;
+  flex-direction: column;
+  width: 148px;
+  flex: 0 0 auto;
+}
+
+.bracket-col-ws {
+  margin-top: 20px;
+}
+
+.bracket-col-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #6c7a99;
+  text-align: center;
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+
+.bracket-col-matches {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 24px;
+  flex: 1;
+}
+
+.bracket-match {
+  background: #10192c;
+  border: 1px solid #263354;
+  border-radius: 10px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bracket-bye {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.bracket-match-team {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.bracket-match-team .team-logo {
+  width: 16px;
+  height: 16px;
+}
+
+.bracket-match-team.is-winner {
+  color: #4ee1a0;
+  font-weight: 800;
+}
+
+.bracket-match-team-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bracket-match-score {
+  font-weight: 800;
+}
+
+.bracket-bye-label {
+  font-size: 9.5px;
+  color: #6c7a99;
+  text-align: center;
+  padding-top: 2px;
+}
+
 .race-row {
   display: flex;
   gap: 10px;
