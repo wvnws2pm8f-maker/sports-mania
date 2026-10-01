@@ -142,7 +142,16 @@ export default function BoxingView() {
                     .find((r) => (r.fighters || []).includes(p.name))
                   return (
                     <div key={p.name} className="boxer-profile-card">
-                      <div className="boxer-profile-name">{p.name}</div>
+                      <div className="boxer-profile-header">
+                        {profile?.photo && (
+                          <img
+                            className="player-avatar"
+                            src={`${import.meta.env.BASE_URL}${profile.photo}`}
+                            alt={p.name}
+                          />
+                        )}
+                        <div className="boxer-profile-name">{p.name}</div>
+                      </div>
                       {profile ? (
                         <>
                           <div className="boxer-profile-line">
@@ -175,6 +184,7 @@ export default function BoxingView() {
                         </div>
                       )}
                       <SearchLinks name={p.name} />
+                      {profile?.photoCredit && <div className="photo-credit">📷 {profile.photoCredit}</div>}
                     </div>
                   )
                 })}

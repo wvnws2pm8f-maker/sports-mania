@@ -505,10 +505,22 @@ img {
   padding: 12px 14px;
 }
 
+.boxer-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
 .boxer-profile-name {
   font-size: 15px;
   font-weight: 800;
-  margin-bottom: 4px;
+}
+
+.photo-credit {
+  font-size: 10px;
+  color: #6c7a99;
+  margin-top: 6px;
 }
 
 .boxer-profile-line {
