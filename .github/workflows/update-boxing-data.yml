@@ -1,0 +1,63 @@
+name: Update Boxing Data
+
+# ボクシングは無料APIが無いため、GeminiのWeb検索で試合結果・新しい試合・選手の近況を調べて
+# src/data/boxingSchedule.json と src/data/boxerProfiles.json を更新する
+# (scripts/update-boxing-data.mjs)。結果確認は毎日、新しい試合の検索と近況確認は週1回。
+# Geminiの無料枠は太平洋時間0時(JST 16:00/17:00)にリセットされるので、15分おきのニュース翻訳に
+# 使い切られる前に回るよう、リセット直後の時間帯に実行する。
+on:
+  schedule:
+    - cron: '30 8 * * *' # 毎日UTC 8:30(JST 17:30)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  actions: write # 下のdeploy.yml手動起動に必要
+
+concurrency:
+  group: update-boxing-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Update boxing data
+        run: node scripts/update-boxing-data.mjs
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      # update-data.ymlが15分おきにmainへpushしているため、push前に取り込み直す
+      # (競合しても対象ファイルが違うのでrebaseは通る)。
+      - name: Commit and push if changed
+        id: commit
+        run: |
+          git config user.name "sports-mania-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/data/boxingSchedule.json src/data/boxerProfiles.json
+          if git diff --cached --quiet; then
+            echo "変更なし。スキップします。"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "chore(data): update boxing data"
+            for i in 1 2 3; do
+              git pull --rebase origin "${GITHUB_REF_NAME}" && git push && break
+              sleep 5
+            done
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # src/data はビルド時に取り込まれるので、反映には再デプロイが必要
+      # (GITHUB_TOKENでのpushはdeploy.ymlを連鎖起動しないため明示的に呼ぶ。update-data.yml参照)。
+      - name: Trigger site redeploy
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --repo "${{ github.repository }}"
