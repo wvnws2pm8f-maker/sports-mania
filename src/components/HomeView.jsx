@@ -252,7 +252,21 @@ export default function HomeView() {
             .filter((g) => !g.isFinal && (g.home.id === p.teamId || g.away.id === p.teamId))
             .sort((a, b) => new Date(a.date) - new Date(b.date))[0]
         : null
-    return { ...p, relatedNews, nextFight, nextGame, lastResult, profile, stats: playerStats[p.playerId] || null }
+    // ボクサーの顔写真はp.headshot(NBA/MLB選手がロスター取得時に持っている既存フィールド)には
+    // 入っていないため、boxerProfiles.jsonのphotoから補う(2026-10-02、「ホームの推し画面に
+    // 写真が反映されていない」との指摘で発覚。BoxingView.jsx側は先に対応済みだったが、
+    // ホーム画面はここで別途推し選手カードを組み立てていて同じ修正が漏れていた)。
+    const boxerPhoto = p.sportPath === 'boxing' && profile?.photo ? `${import.meta.env.BASE_URL}${profile.photo}` : null
+    return {
+      ...p,
+      relatedNews,
+      nextFight,
+      nextGame,
+      lastResult,
+      profile,
+      stats: playerStats[p.playerId] || null,
+      headshot: p.headshot || boxerPhoto
+    }
   })
 
   // 「見逃したくない試合」: 推しチーム・推し選手(のチーム)・推しボクサーの次の試合/試合を
