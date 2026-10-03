@@ -107,12 +107,68 @@ function cleanWikitext(wt) {
     .replace(/\n{3,}/g, '\n\n')
 }
 
+async function wikiApi(lang, params) {
+  const qs = new URLSearchParams({ format: 'json', formatversion: '2', ...params })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 20000)
+  try {
+    const res = await fetch(`https://${lang}.wikipedia.org/w/api.php?${qs}`, {
+      headers: { 'User-Agent': USER_AGENT },
+      signal: controller.signal
+    })
+    return await res.json()
+  } catch (err) {
+    console.error(`[wiki] ${lang} API呼び出しに失敗: ${err.message}`)
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// その年のボクシング記事のタイトル。記事名の付け方は言語版・年によって違うことがあるので
+// (2026-10-03、「2026年のボクシング」「2026 in boxing」という記事は存在しなかった)、
+// よくある候補名を確かめ、無ければWikipediaの検索で「年」と「ボクシング」を含む記事を探す。
+const TITLE_CANDIDATES = {
+  ja: (y) => [`${y}年のボクシング界`, `${y}年のボクシング`, `${y}年のプロボクシング`],
+  en: (y) => [`${y} in boxing`, `List of ${y} boxing events`, `${y} in professional boxing`]
+}
+const TITLE_SEARCH = {
+  ja: (y) => ({ q: `intitle:${y} intitle:ボクシング`, ok: (t) => t.includes(String(y)) && t.includes('ボクシング') }),
+  en: (y) => ({ q: `intitle:${y} intitle:boxing`, ok: (t) => t.includes(String(y)) && /boxing/i.test(t) })
+}
+const yearPageCache = new Map()
+
+async function resolveYearPage(lang, year) {
+  const key = `${lang}:${year}`
+  if (yearPageCache.has(key)) return yearPageCache.get(key)
+  let title = null
+  const exist = await wikiApi(lang, { action: 'query', redirects: '1', titles: TITLE_CANDIDATES[lang](year).join('|') })
+  const pages = (exist?.query?.pages || []).filter((p) => !p.missing && !p.invalid)
+  // 候補の並び順(上ほど優先)で選ぶ。リダイレクトされた場合は転送先のタイトルになっている
+  const order = TITLE_CANDIDATES[lang](year)
+  const redirects = Object.fromEntries((exist?.query?.redirects || []).map((r) => [r.to, r.from]))
+  pages.sort((a, b) => order.indexOf(redirects[a.title] || a.title) - order.indexOf(redirects[b.title] || b.title))
+  if (pages.length) title = pages[0].title
+  if (!title) {
+    const { q, ok } = TITLE_SEARCH[lang](year)
+    const found = await wikiApi(lang, { action: 'query', list: 'search', srsearch: q, srnamespace: '0', srlimit: '10' })
+    const hits = (found?.query?.search || []).map((h) => h.title)
+    console.log(`[wiki] ${lang}:${year} の検索結果: ${JSON.stringify(hits)}`)
+    title = hits.find(ok) || null
+  }
+  console.log(`[wiki] ${lang}:${year} の記事: ${title || '見つかりません'}`)
+  yearPageCache.set(key, title)
+  return title
+}
+
 // その年のボクシング記事(日本語版を優先し、無ければ英語版)
-function yearPages(year) {
-  return [
-    { lang: 'ja', title: `${year}年のボクシング` },
-    { lang: 'en', title: `${year} in boxing` }
-  ]
+async function yearPages(year) {
+  const out = []
+  for (const lang of ['ja', 'en']) {
+    const title = await resolveYearPage(lang, year)
+    if (title) out.push({ lang, title })
+  }
+  return out
 }
 
 // 名前を探すためのキー(フルネームと、3文字以上の各部分)
@@ -226,7 +282,7 @@ async function askGemma(prompt, label) {
 
 async function findFightExcerpt(fight) {
   const year = fight.date.slice(0, 4)
-  for (const { lang, title } of yearPages(year)) {
+  for (const { lang, title } of await yearPages(year)) {
     const text = await fetchWikiPage(lang, title)
     if (!text) continue
     const ex = excerptAroundFight(text, fight.fighters)
@@ -337,7 +393,7 @@ async function addNewFights(schedule, today) {
   // 期間が年をまたぐ時は翌年の記事も読む。日本語版があれば日本語版だけを使う(選手名の表記を揃えるため)
   const chunks = []
   for (const year of [...new Set([from.slice(0, 4), horizon.slice(0, 4)])]) {
-    for (const { lang, title } of yearPages(year)) {
+    for (const { lang, title } of await yearPages(year)) {
       const text = await fetchWikiPage(lang, title)
       if (!text) continue
       for (const c of excerptsForPeriod(text, from, horizon)) chunks.push({ text: c, source: `${lang}:${title}` })
