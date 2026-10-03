@@ -13,8 +13,8 @@
 // 間違った情報を載せないことを最優先にしている:
 // - Gemmaには記憶ではなく、渡したWikipediaの文章からだけ答えさせる
 // - 対戦相手の名前と試合の日付が、抜き出した戦績表の部分に実際に書かれている時だけ読む
-// - 試合方法に含まれる数字(ラウンド・時間・採点)がすべて元の文章に書かれているかを
-//   プログラムで確かめ、書かれていなければ捨てる
+// - 試合方法はGemmaに部品(種類・ラウンド・時間・採点)だけ答えさせて表記はプログラムで組み立て、
+//   各部品が元の文章に書かれているかを確かめる。確かめられなければ捨てる
 // - 勝敗は、もう1人の選手の記事でも確かめ(無ければ聞き方を変えて同じ記事で)、
 //   同じ答えの時だけ反映する
 // - 引き分け・無効試合・中止は自動では反映しない(画面が「◯◯が勝利」表示のため)
@@ -50,7 +50,6 @@ function daysBetween(a, b) {
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-const isText = (s, max = 200) => typeof s === 'string' && s.trim() !== '' && s.length <= max
 
 // 表記ゆれ(空白・中黒・大文字小文字・全角半角)を無視して名前を比べるための正規化
 const normName = (s) =>
@@ -193,11 +192,72 @@ function dateGrounded(text, date) {
 
 // ---- 検証 ----
 
-// 試合方法に含まれる数字(ラウンド・時間・採点)が、すべて元の文章に書かれているか
-function numbersGrounded(method, text) {
-  const nums = String(method).match(/\d+/g) || []
-  const t = String(text)
-  return nums.every((n) => new RegExp(`(^|[^0-9])${n}([^0-9]|$)`).test(t))
+// ---- 試合方法の組み立てと検証 ----
+// Gemmaには試合方法を文章で書かせず、種類・ラウンド・時間・採点の部品だけを答えさせて、
+// 表記はここで既存データと同じ形に組み立てる(2026-10-03の本番テストで、Gemmaに書かせると
+// 英語のまま("Majority decision (98–92…)")や、負けた側から見た表記("判定0-3")になったため)。
+// 部品はそれぞれ元の文章に書かれているかを確かめる。
+
+const DASHES = /[-–—−‐－ー]/g
+const sameDash = (s) => String(s).replace(DASHES, '-')
+
+// "1:05" → "1分5秒"、"0:38" → "38秒"
+function formatTime(t) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '').trim())
+  if (!m) return null
+  const min = Number(m[1])
+  const sec = Number(m[2])
+  return `${min ? `${min}分` : ''}${sec ? `${sec}秒` : ''}` || null
+}
+
+// 時間が文章に書かれているか("1:05" / "1分5秒" / "1分05秒" / 1分未満なら "38秒")
+function timeGrounded(t, text) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim())
+  if (!m) return false
+  const min = Number(m[1])
+  const sec = Number(m[2])
+  const variants = [`${min}:${m[2]}`]
+  if (min > 0) variants.push(`${min}分${sec}秒`, `${min}分${m[2]}秒`)
+  else variants.push(`${sec}秒`)
+  return variants.some((v) => text.includes(v))
+}
+
+const roundGrounded = (n, text) => new RegExp(`(^|[^0-9])${n}([^0-9]|$)`).test(text)
+
+const DECISIONS = { UD: 'Unanimous Decision', MD: 'Majority Decision', SD: 'Split Decision' }
+const DECISION_WORDS = {
+  UD: [/\bUD\b/, /unanimous/i, /判定/],
+  MD: [/\bMD\b/, /majority/i, /判定/],
+  SD: [/\bSD\b/, /split/i, /判定/]
+}
+
+// 戻り値: 既存データと同じ表記の試合方法。部品が元の文章で確かめられない時は null
+function buildMethod(r, text) {
+  const t = sameDash(text)
+  const type = String(r.decision || '').toUpperCase()
+  const round = Number(r.round)
+  if (type === 'KO' || type === 'TKO') {
+    if (!Number.isInteger(round) || round < 1 || round > 15 || !roundGrounded(round, t)) return null
+    if (!new RegExp(type === 'KO' ? '\\bKO\\b|ノックアウト|KO勝' : 'TKO|テクニカルノックアウト').test(text)) return null
+    let time = ''
+    if (r.time) {
+      if (!timeGrounded(r.time, t)) return null
+      time = formatTime(r.time) || ''
+    }
+    return `${type}(${round}回${time})`
+  }
+  if (DECISIONS[type]) {
+    if (!DECISION_WORDS[type].some((re) => re.test(text))) return null
+    const rounds = Number(r.scheduled_rounds || r.round)
+    if (!Number.isInteger(rounds) || rounds < 4 || rounds > 15 || !roundGrounded(rounds, t)) return null
+    const scores = (Array.isArray(r.scores) ? r.scores : []).map(sameDash).filter((x) => /^\d{2,3}-\d{2,3}$/.test(x))
+    // 採点は「114-113」の形で文章に書かれているものだけ使う(書かれていないものが1つでもあれば採点は付けない)
+    const useScores = scores.length > 0 && scores.every((x) => t.includes(x))
+    return useScores
+      ? `判定(${DECISIONS[type]} ${scores.join(', ')}, ${rounds}回)`
+      : `判定(${DECISIONS[type]}, ${rounds}回)`
+  }
+  return null // RTD・失格・負傷判定などは表記が揺れるので自動では扱わない
 }
 
 let lastGemmaCall = 0
@@ -233,7 +293,7 @@ async function excerptFromFighterArticle(subject, opponent, date) {
 }
 
 // 記事の主(subject)から見た勝敗を聞き、試合全体の勝者(fighters の添字)に直して返す
-async function askWinner(fight, ex, methodExamples) {
+async function askWinner(fight, ex) {
   const opponent = fight.fighters.find((n) => n !== ex.subject)
   const r = await askGemma(
     `以下はWikipediaの「${ex.subject}」の記事(${ex.source})の一部です。戦績表の勝敗は ${ex.subject} から見たものです。
@@ -244,25 +304,23 @@ ${ex.excerpt}
 --- ここまで ---
 
 次の形式のJSONだけを出力してください(前置きや説明は不要):
-{"status": "finished" | "not_found", "subject_result": "win" | "loss" | "draw" | "no_contest" | null, "method": "試合方法"}
+{"status": "finished" | "not_found", "subject_result": "win" | "loss" | "draw" | "no_contest" | null, "decision": "KO" | "TKO" | "UD" | "MD" | "SD" | "other", "round": 決着したラウンド(数字), "scheduled_rounds": 予定ラウンド数(数字、不明ならnull), "time": "決着した時間 m:ss(KO/TKOで書かれている時だけ。なければnull)", "scores": ["採点(例: 114-113)", ...]}
 
 - この試合の結果が文章に書かれている時だけ "finished" にする。書かれていなければ "not_found"
 - "subject_result" は ${ex.subject} が勝ったなら "win"、負けたなら "loss"
-- "method" は次の例と同じ書き方にする: ${JSON.stringify(methodExamples)}
-  (KO/TKOならラウンドと時間、判定なら種類と採点。文章に書かれている数字だけを使う)`,
+- "decision": 判定の場合、3-0・全員一致は "UD"、2-0(1人が引き分け)は "MD"、2-1は "SD"。RTD・失格・負傷判定などは "other"
+- "scores" は文章に書かれている採点だけを、勝った選手の点数を先にして並べる("116-111×2" のような書き方は2つに分ける)。書かれていなければ []`,
     'result'
   )
   if (!r || r.status !== 'finished') return { status: r?.status || 'error' }
   if (r.subject_result !== 'win' && r.subject_result !== 'loss') return { status: 'not_win_loss', detail: r.subject_result }
   const subjectIdx = fight.fighters.indexOf(ex.subject)
   const winnerIdx = r.subject_result === 'win' ? subjectIdx : 1 - subjectIdx
-  return { status: 'finished', winnerIdx, method: r.method }
+  return { status: 'finished', winnerIdx, method: buildMethod(r, ex.excerpt), raw: r }
 }
 
 async function resolvePastFights(schedule, today) {
   let changed = false
-  const methodExamples = [...new Set(schedule.results.map((r) => r.method))].slice(-6)
-
   for (const fight of [...schedule.fights]) {
     if (hasQuotaExhausted()) break
     if (!(fight.date < today)) continue
@@ -282,7 +340,7 @@ async function resolvePastFights(schedule, today) {
       continue
     }
 
-    const first = await askWinner(fight, excerpts[0], methodExamples)
+    const first = await askWinner(fight, excerpts[0])
     if (first.status === 'not_win_loss') {
       console.warn(`[result] ${fight.cardName}: 結果が ${first.detail} のため自動反映しません。手動で確認してください`)
       continue
@@ -291,13 +349,13 @@ async function resolvePastFights(schedule, today) {
       console.log(`[result] ${fight.cardName}: 結果未確認 (${first.status})`)
       continue
     }
-    if (!isText(first.method, 80) || !numbersGrounded(first.method, excerpts[0].excerpt)) {
-      console.warn(`[result] ${fight.cardName}: 試合方法が元の文章と合わないため見送ります (${JSON.stringify(first.method)})`)
+    if (!first.method) {
+      console.warn(`[result] ${fight.cardName}: 試合方法を元の文章で確かめられないため見送ります (${JSON.stringify(first.raw)})`)
       continue
     }
 
     // もう1人の記事があればそちらで、無ければ同じ記事でもう一度聞き、勝者が一致した時だけ反映する
-    const second = await askWinner(fight, excerpts[1] || excerpts[0], methodExamples)
+    const second = await askWinner(fight, excerpts[1] || excerpts[0])
     if (second.status !== 'finished' || second.winnerIdx !== first.winnerIdx) {
       console.warn(`[result] ${fight.cardName}: 2回目の確認で勝者が一致しなかったため見送ります (1回目=${fight.fighters[first.winnerIdx]}, 2回目=${second.status === 'finished' ? fight.fighters[second.winnerIdx] : second.status})`)
       continue
