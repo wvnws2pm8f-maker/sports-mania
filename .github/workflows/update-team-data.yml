@@ -44,7 +44,13 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "chore(data): update team rosters"
-            git push
+            # 他のデータ更新ワークフロー(update-boxing-data.yml等)と同時にpushすると
+            # 拒否されるので、最新のmainを取り込んで再試行する(対象ファイルが違うのでrebaseは通る)
+            for i in 1 2 3; do
+              git pull --rebase origin "${GITHUB_REF_NAME}" && git push && break
+              [ "$i" = 3 ] && exit 1
+              sleep 5
+            done
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
