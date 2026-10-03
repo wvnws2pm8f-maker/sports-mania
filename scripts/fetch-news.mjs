@@ -77,6 +77,7 @@ function stripHtml(html) {
     .trim()
 }
 
+// 戻り値: 本文の文字列 / ''=本文が無い記事(動画クリップ等) / null=通信エラー等で取得失敗(次回再試行)
 async function fetchArticleBody(id) {
   try {
     const data = await fetchJson(`https://now.core.api.espn.com/v1/sports/news/${id}`)
@@ -85,7 +86,7 @@ async function fetchArticleBody(id) {
     return stripHtml(story).slice(0, BODY_MAX_CHARS)
   } catch (err) {
     console.error(`FAILED: article body ${id}: ${err.message}`)
-    return ''
+    return null
   }
 }
 
@@ -138,7 +139,8 @@ function loadPreviousBodies() {
     const prev = JSON.parse(readFileSync(NEWS_JSON_PATH, 'utf8'))
     const map = new Map()
     for (const a of prev.articles || []) {
-      if (a.body) map.set(a.id, { headline: a.headline, body: a.body })
+      // 本文が無いと確認済み(noBody)の記事も覚えておき、毎回取得し直さないようにする
+      if (a.body || a.noBody) map.set(a.id, { headline: a.headline, body: a.body || '', noBody: Boolean(a.noBody) })
     }
     return map
   } catch {
@@ -230,14 +232,16 @@ const MAX_NEW_BODIES_PER_RUN = 10
 // 全文本体(英語)の取得。見出し・要約とは別のAPI呼び出しが必要なため、独立した関数にしている。
 // 既に本文を取得済み(id+見出しが同じ)ならAPIを叩き直さず前回の結果を使い回す。
 // 翻訳はここでは行わない(クリック時にブラウザ側でその場で翻訳する。上のコメント参照)。
-async function attachBodies(articles) {
-  const cache = loadPreviousBodies()
+async function attachBodies(articles, cache) {
   const needsFetch = []
   const byId = new Map()
   for (const a of articles) {
     const cached = cache.get(a.id)
     if (cached && cached.headline === a.headline) {
-      byId.set(a.id, { body: cached.body })
+      byId.set(a.id, { body: cached.body, noBody: cached.noBody })
+    } else if (/\/video\//.test(a.link)) {
+      // 動画クリップには文章の本文が無いので、取得を試みずに「本文なし」とする
+      byId.set(a.id, { body: '', noBody: true })
     } else {
       needsFetch.push(a)
     }
@@ -253,13 +257,18 @@ async function attachBodies(articles) {
       body: await fetchArticleBody(a.id)
     }))
     for (const b of bodies) {
-      byId.set(b.id, { body: b.body })
+      // 本文が無かった記事は noBody として記録する。以前はこれを記録せず毎回取得し直していたため、
+      // 本文の無い記事(動画クリップ等)が1回あたり10件の取得枠を毎回占領し続け、それより後ろの
+      // 記事の本文がいつまでも取得されない(「全文を読む」が出ない)不具合になっていた(2026-10-03)。
+      // 通信エラー(null)の場合は何も記録せず、次回また取得を試みる。
+      if (b.body !== null) byId.set(b.id, { body: b.body, noBody: b.body === '' })
     }
   }
 
   return articles.map((a) => {
     const b = byId.get(a.id)
-    return b ? { ...a, body: b.body } : a
+    if (!b) return a
+    return b.noBody ? { ...a, noBody: true } : { ...a, body: b.body }
   })
 }
 
@@ -310,6 +319,11 @@ async function main() {
   // 見出し・要約は記事一覧を開いた瞬間に全員の目に入るので、クォータ超過によるバックオフ中
   // でなければ毎回(15分おき)翻訳を試みる。1回のGemini呼び出しで未翻訳分をまとめて処理する
   // ため(translateArticlesBatch参照)、新着が無い実行ではGeminiを呼ぶことさえない。
+  // 前回の本文キャッシュは、下の途中保存でnews.jsonが上書きされる前に読んでおく。
+  // 以前は本文取得の直前(=途中保存の後)に読んでいたため、途中保存で本文が消えた
+  // news.jsonを読むことになり、キャッシュが毎回空 → 毎回先頭10件だけを取得し直し、
+  // 11件目以降の記事の本文がいつまでも取得されない不具合になっていた(2026-10-03)。
+  const bodyCache = loadPreviousBodies()
   const backoff = loadGeminiBackoff()
   const now = Date.now()
   const inBackoff = hasGeminiKey() && Boolean(backoff) && now < new Date(backoff.untilISO).getTime()
@@ -352,7 +366,7 @@ async function main() {
   // 全文本体(英語)の取得。本文取得はニュース一覧APIとは別のAPIコールが必要なため、
   // 見出し翻訳とは独立して行う。本文の日本語訳はここでは作らない(常に原文表示。
   // src/components/HomeView.jsxのコメント参照)。
-  const translated = await attachBodies(translatedHeadlines)
+  const translated = await attachBodies(translatedHeadlines, bodyCache)
 
   const output = { articles: translated, updatedAt: new Date().toISOString(), geminiBackoff }
   writeFileSync(NEWS_JSON_PATH, JSON.stringify(output))
