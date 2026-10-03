@@ -12,7 +12,9 @@
 // 1分30回で別枠。そこで:
 //   - news(見出し翻訳)      → Gemma 4 31B
 //   - commentary(一言解説)  → Gemma 4 26B
-//   - search(ボクシングのWeb検索) → gemini-3.6-flash(Google検索が使えるのはGeminiだけ)
+//   - boxing(Wikipediaの文章から試合を抜き出す) → Gemma 4 26B
+//   - search(Web検索付き) → gemini-3.6-flash。ただし無料枠では検索機能が使えないらしく(2026-10-03、
+//     検索付きの呼び出しだけが理由なしの429で断られた)、現在どこからも使っていない
 // GemmaのモデルIDは実行時にモデル一覧APIから探す(IDの細かい表記を推測に頼らないため)。
 // GitHubのリポジトリ変数 GEMINI_MODEL_NEWS / GEMINI_MODEL_COMMENTARY / GEMINI_MODEL_SEARCH を
 // 設定すれば、コードを変えずにモデルを差し替えられる。
@@ -20,6 +22,8 @@ const MODEL_ROLES = {
   // 31Bが混雑(503)・タイムアウト・枠切れで答えない時は、26Bで代わりに翻訳する(fallbackRoles)
   news: { env: 'GEMINI_MODEL_NEWS', match: /^gemma-4-31b/, fallback: 'gemma-4-31b-it', fallbackRoles: ['commentary'] },
   commentary: { env: 'GEMINI_MODEL_COMMENTARY', match: /^gemma-4-26b/, fallback: 'gemma-4-26b-it' },
+  // ボクシング: Wikipediaから取った文章の中から試合結果・予定を抜き出す(検索は使わない)
+  boxing: { env: 'GEMINI_MODEL_BOXING', match: /^gemma-4-26b/, fallback: 'gemma-4-26b-it', fallbackRoles: ['news'] },
   search: { env: 'GEMINI_MODEL_SEARCH', match: null, fallback: 'gemini-3.6-flash' }
 }
 
