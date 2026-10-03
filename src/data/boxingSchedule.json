@@ -120,5 +120,6 @@
       "fighters": ["Daniel Dubois", "Fabio Wardley"],
       "broadcast": "DAZN PPV"
     }
-  ]
+  ],
+  "autoUpdate": {}
 }
