@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-28",
+  "updatedAt": "2026-10-03",
   "note": "ボクシングは安定した無料APIが無いため、試合結果はGitHub Actions(scripts/update-boxing-data.mjs)が毎日、選手本人のWikipedia記事の戦績表からAI(Gemma)に読み取らせて反映しています(相手の名前・日付・試合方法の数字が記事に書かれているか、勝敗が両選手の記事で一致するかを確かめたものだけ)。今後の試合の追加と、引き分け・無効試合・中止は自動では反映しないので手動で直すこと。",
   "results": [
     {
@@ -119,6 +119,58 @@
       "cardName": "Daniel Dubois vs Fabio Wardley（WBO世界ヘビー級王座防衛戦）",
       "fighters": ["Daniel Dubois", "Fabio Wardley"],
       "broadcast": "DAZN PPV"
+    },
+    {
+      "date": "2026-10-24",
+      "venue": "Frost Bank Center, San Antonio",
+      "cardName": "Emanuel Navarrete vs O'Shaquie Foster（WBO・IBF・WBC世界スーパーフェザー級王座統一戦）",
+      "fighters": ["Emanuel Navarrete", "O'Shaquie Foster"],
+      "broadcast": "DAZN"
+    },
+    {
+      "date": "2026-10-24",
+      "venue": "Utilita Arena, Sheffield",
+      "cardName": "Dalton Smith vs Alberto Puello（WBC世界スーパーライト級タイトルマッチ、スミスの初防衛戦）",
+      "fighters": ["Dalton Smith", "Alberto Puello"]
+    },
+    {
+      "date": "2026-10-31",
+      "venue": "Riyadh, Saudi Arabia",
+      "cardName": "Christian Mbilli vs Canelo Álvarez（WBC世界スーパーミドル級タイトルマッチ、カネロの王座奪還挑戦）",
+      "fighters": ["Christian Mbilli", "Canelo Álvarez"]
+    },
+    {
+      "date": "2026-11-07",
+      "venue": "AO Arena, Manchester",
+      "cardName": "Joshua Buatsi vs Willy Hutchinson（WBC世界ライトヘビー級暫定王座決定戦、2024年以来の再戦）",
+      "fighters": ["Joshua Buatsi", "Willy Hutchinson"],
+      "broadcast": "DAZN"
+    },
+    {
+      "date": "2026-11-26",
+      "venue": "EBARA WAVEアリーナおおた（大田区総合体育館）",
+      "cardName": "矢吹正道 vs ミエル・ファハルド（IBF世界フライ級タイトルマッチ、矢吹の3度目の防衛戦・指名試合）",
+      "fighters": ["矢吹正道", "ミエル・ファハルド"],
+      "broadcast": "Lemino"
+    },
+    {
+      "date": "2026-11-28",
+      "venue": "Merkur Spiel-Arena, Düsseldorf",
+      "cardName": "Agit Kabayel vs Nelson Hysa（WBC世界ヘビー級タイトルマッチ）",
+      "fighters": ["Agit Kabayel", "Nelson Hysa"]
+    },
+    {
+      "date": "2026-12-11",
+      "venue": "Principality Stadium, Cardiff",
+      "cardName": "Tyson Fury vs Anthony Joshua（ヘビー級、英国の元世界王者同士の初対決）",
+      "fighters": ["Tyson Fury", "Anthony Joshua"],
+      "broadcast": "Netflix"
+    },
+    {
+      "date": "2026-12-19",
+      "venue": "Belfast, Northern Ireland",
+      "cardName": "Anthony Cacace vs Nick Ball（WBA世界スーパーフェザー級タイトルマッチ、カケースの初防衛戦）",
+      "fighters": ["Anthony Cacace", "Nick Ball"]
     }
   ]
 }
