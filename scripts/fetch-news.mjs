@@ -2,7 +2,7 @@
 // ESPNは順位表・試合結果だけでなく、実際の編集記事(見出し・要約・写真)も公開している。
 // これを使うことで「結果の寄せ集め」ではなく「今スポーツ界で何が起きているか」を伝えられる。
 import { writeFileSync, readFileSync, existsSync } from 'node:fs'
-import { callGemini, parseGeminiJson, hasGeminiKey, hasQuotaExhausted } from './gemini.mjs'
+import { callGemini, parseGeminiJson, hasGeminiKey, hasQuotaExhausted, resolveModel } from './gemini.mjs'
 
 const BASE = 'https://site.api.espn.com/apis/site/v2/sports'
 const NEWS_JSON_PATH = new URL('../public/data/news.json', import.meta.url)
@@ -117,11 +117,16 @@ function loadPreviousTranslations() {
 const BACKOFF_INITIAL_MINUTES = 60
 const BACKOFF_MAX_MINUTES = 240
 
-function loadGeminiBackoff() {
+// バックオフはモデルごとの枠切れを表すので、使うモデルが変わったら引き継がない
+// (2026-10-03、gemini-3.6-flashからGemmaへ切り替えた直後に、古いモデルの枠切れで
+// 翻訳が止まったままにならないようにするため)。
+function loadGeminiBackoff(model) {
   if (!existsSync(NEWS_JSON_PATH)) return null
   try {
     const prev = JSON.parse(readFileSync(NEWS_JSON_PATH, 'utf8'))
-    return prev.geminiBackoff || null // { minutes, untilISO }
+    const backoff = prev.geminiBackoff || null // { minutes, untilISO, model }
+    if (backoff && backoff.model !== model) return null
+    return backoff
   } catch {
     return null
   }
@@ -324,7 +329,8 @@ async function main() {
   // news.jsonを読むことになり、キャッシュが毎回空 → 毎回先頭10件だけを取得し直し、
   // 11件目以降の記事の本文がいつまでも取得されない不具合になっていた(2026-10-03)。
   const bodyCache = loadPreviousBodies()
-  const backoff = loadGeminiBackoff()
+  const newsModel = hasGeminiKey() ? await resolveModel('news') : null
+  const backoff = loadGeminiBackoff(newsModel)
   const now = Date.now()
   const inBackoff = hasGeminiKey() && Boolean(backoff) && now < new Date(backoff.untilISO).getTime()
   if (inBackoff) {
@@ -338,7 +344,7 @@ async function main() {
   if (hasGeminiKey() && !inBackoff) {
     if (hasQuotaExhausted()) {
       const minutes = Math.min((backoff?.minutes || BACKOFF_INITIAL_MINUTES / 2) * 2, BACKOFF_MAX_MINUTES)
-      geminiBackoff = { minutes, untilISO: new Date(now + minutes * 60000).toISOString() }
+      geminiBackoff = { minutes, untilISO: new Date(now + minutes * 60000).toISOString(), model: newsModel }
       console.log(`翻訳: クォータ超過を検知。次は約${minutes}分後まで試行をスキップします`)
     } else {
       geminiBackoff = null // 成功、またはクォータ超過に遭遇しなかった(=新着自体が無かった)のでリセット

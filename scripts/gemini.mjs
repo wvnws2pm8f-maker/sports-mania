@@ -43,7 +43,7 @@ async function listModelIds(key) {
 }
 
 const resolvedModels = new Map()
-async function resolveModel(role) {
+export async function resolveModel(role) {
   if (resolvedModels.has(role)) return resolvedModels.get(role)
   const cfg = MODEL_ROLES[role]
   let model = process.env[cfg.env] || null
