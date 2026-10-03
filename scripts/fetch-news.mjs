@@ -163,7 +163,7 @@ async function translateArticlesBatch(items) {
 
 入力:
 ${JSON.stringify(input)}`
-  const text = await callGemini(prompt, { asJson: true })
+  const text = await callGemini(prompt, { asJson: true, role: 'news' })
   const parsed = parseGeminiJson(text)
   const map = new Map()
   if (Array.isArray(parsed)) {

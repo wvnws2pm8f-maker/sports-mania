@@ -33,6 +33,7 @@ jobs:
         run: node scripts/update-boxing-data.mjs
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL_SEARCH: ${{ vars.GEMINI_MODEL_SEARCH }} # 未設定なら scripts/gemini.mjs の既定モデル
 
       # update-data.ymlが15分おきにmainへpushしているため、push前に取り込み直す
       # (競合しても対象ファイルが違うのでrebaseは通る)。

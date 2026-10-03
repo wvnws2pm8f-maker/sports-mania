@@ -266,7 +266,7 @@ async function main() {
 - 誇張しすぎず、この勝敗数という事実に基づいた表現にする
 - 選手名や具体的なプレー内容など、示していない情報は書かない
 - 出力はキャッチコピーの文章のみ。前置き・引用符・説明は不要`
-      const text = await callGemini(prompt)
+      const text = await callGemini(prompt, { role: 'commentary' })
       if (text) t.commentary = text.replace(/^["「]|["」]$/g, '').trim()
     }
     console.log(`commentary: ${hotTeams.filter((t) => t.commentary).length}/${hotTeams.length}`)
