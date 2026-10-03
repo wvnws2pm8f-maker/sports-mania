@@ -1,5 +1,9 @@
 # 週次ボクシングデータ更新 (Claude Routine)
 
+> **2026-10-03 以降は使っていません。** ボクシングの結果は GitHub Actions(`update-boxing-data.yml`)が
+> 選手のWikipedia記事から自動で反映するようになりました。今の運用は `docs/HANDOFF.md` を見てください。
+> このファイルは、ClaudeのRoutineを再び使いたくなった時のための控えとして残しています。
+
 Claude Code の Routine(スケジュール実行)で動かしている処理の控え。
 Claude のプランを解約・再開して Routine が消えていた場合は、この内容で作り直す。
 Claude を使わずに手で更新するときの手順書としても使える。
