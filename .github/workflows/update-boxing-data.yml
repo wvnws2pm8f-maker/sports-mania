@@ -1,9 +1,10 @@
 name: Update Boxing Data
 
-# ボクシングは無料APIが無いため、その年のボクシングのWikipedia記事を取得し、その文章から
-# Gemma(無料枠)に試合結果・新しい試合を抜き出させて src/data/boxingSchedule.json を更新する
-# (scripts/update-boxing-data.mjs)。結果確認は毎日、新しい試合の追加は週1回。
-# 手動実行で dry_run にチェックを入れると、反映する内容をログに出すだけで書き換えない。
+# ボクシングは無料APIが無いため、日付が過ぎた試合について、両選手のWikipedia記事の戦績表を
+# 取得し、その文章からGemma(無料枠)に結果を読み取らせて src/data/boxingSchedule.json に反映する
+# (scripts/update-boxing-data.mjs)。今後の試合の追加は手動。
+# 手動実行で dry_run にチェックを入れると、反映する内容と、登録済みの結果との照合をログに出すだけで
+# 書き換えない。
 on:
   schedule:
     - cron: '30 8 * * *' # 毎日UTC 8:30(JST 17:30)

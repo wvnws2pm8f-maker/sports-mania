@@ -193,7 +193,7 @@ export default function BoxingView() {
           )}
 
           <p className="muted boxing-note">
-            ※ ボクシングは無料APIが無いため、Wikipediaの記事からAIが読み取った情報を自動で反映しています（最終更新: {boxingData.updatedAt}）
+            ※ ボクシングは無料APIが無いため、試合結果は選手のWikipedia記事からAIが読み取って自動で反映しています（最終更新: {boxingData.updatedAt}）
           </p>
           <div className="game-list">
             {boxingData.fights.map((f, i) => (
@@ -221,7 +221,7 @@ export default function BoxingView() {
       {subTab === '試合結果' && (
         <>
           <p className="muted boxing-note">
-            ※ ボクシングは無料APIが無いため、Wikipediaの記事からAIが読み取った情報を自動で反映しています（最終更新: {boxingData.updatedAt}）
+            ※ ボクシングは無料APIが無いため、試合結果は選手のWikipedia記事からAIが読み取って自動で反映しています（最終更新: {boxingData.updatedAt}）
           </p>
           <div className="game-list">
             {[...(boxingData.results || [])].reverse().map((r, i) => (
