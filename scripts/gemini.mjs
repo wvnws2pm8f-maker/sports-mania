@@ -17,7 +17,8 @@
 // GitHubのリポジトリ変数 GEMINI_MODEL_NEWS / GEMINI_MODEL_COMMENTARY / GEMINI_MODEL_SEARCH を
 // 設定すれば、コードを変えずにモデルを差し替えられる。
 const MODEL_ROLES = {
-  news: { env: 'GEMINI_MODEL_NEWS', match: /^gemma-4-31b/, fallback: 'gemma-4-31b-it' },
+  // 31Bが混雑(503)・タイムアウト・枠切れで答えない時は、26Bで代わりに翻訳する(fallbackRoles)
+  news: { env: 'GEMINI_MODEL_NEWS', match: /^gemma-4-31b/, fallback: 'gemma-4-31b-it', fallbackRoles: ['commentary'] },
   commentary: { env: 'GEMINI_MODEL_COMMENTARY', match: /^gemma-4-26b/, fallback: 'gemma-4-26b-it' },
   search: { env: 'GEMINI_MODEL_SEARCH', match: null, fallback: 'gemini-3.6-flash' }
 }
@@ -68,6 +69,10 @@ export function hasGeminiKey() {
 // 本文翻訳(1回でも呼べば必ず同じ理由で失敗する)まで律儀に試みて無駄にAPIへ
 // アクセスし続けることが無いようにする(2026-09-22、本文翻訳が常に0件だった問題の対策の一部)。
 let quotaExhaustedThisRun = false
+// 1日の枠を使い切ったモデル(このプロセス内)。代わりのモデルがあればそちらで続ける。
+const exhaustedModels = new Set()
+// 混雑(503)・タイムアウト等で応答しなかったモデル(このプロセス内)。次の呼び出しでは後回しにする。
+const unresponsiveModels = new Set()
 
 // 呼び出し側(fetch-news.mjs)が「今回クォータ超過にぶつかったか」を見て、次回以降しばらく
 // 翻訳の試行自体をスキップする(無駄打ちを減らす)バックオフ判断に使う。
@@ -115,11 +120,25 @@ function sleep(ms) {
 // 呼び出し側のparseGeminiJsonで前置き文などを剥がして取り出す。
 export async function callGemini(prompt, { asJson = false, retries = 2, role = 'news', timeoutMs = 60000 } = {}) {
   if (!hasGeminiKey()) return null
-  const model = await resolveModel(role)
-  const body = { contents: [{ parts: [{ text: prompt }] }] }
-  if (asJson && !isGemma(model)) body.generationConfig = { responseMimeType: 'application/json' }
-  const candidate = await requestGemini(body, { retries, timeoutMs, model })
-  return candidate ? candidateText(candidate) : null
+  const roles = [role, ...(MODEL_ROLES[role].fallbackRoles || [])]
+  const models = []
+  for (const r of roles) {
+    const m = await resolveModel(r)
+    if (!models.includes(m)) models.push(m)
+  }
+  // 直前に応答しなかったモデルは後回しにし、毎回待たされないようにする
+  models.sort((a, b) => unresponsiveModels.has(a) - unresponsiveModels.has(b))
+  for (const [i, model] of models.entries()) {
+    if (i > 0) console.log(`Gemini: ${models[i - 1]} が応答しないため ${model} で再試行します`)
+    const body = { contents: [{ parts: [{ text: prompt }] }] }
+    if (asJson && !isGemma(model)) body.generationConfig = { responseMimeType: 'application/json' }
+    const candidate = await requestGemini(body, { retries, timeoutMs, model })
+    if (candidate) return candidateText(candidate)
+    if (!exhaustedModels.has(model)) unresponsiveModels.add(model)
+  }
+  // 使えるモデルがすべて1日の枠切れなら、呼び出し側(ニュースのバックオフ等)に知らせる
+  if (models.every((m) => exhaustedModels.has(m))) quotaExhaustedThisRun = true
+  return null
 }
 
 // Google検索(グラウンディング)付きで呼び出す。Geminiが実際にWeb検索した結果を元に答えさせ、
@@ -132,7 +151,10 @@ export async function callGeminiWithSearch(prompt, { retries = 2 } = {}) {
   const model = await resolveModel('search')
   const body = { contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }] }
   const candidate = await requestGemini(body, { retries, timeoutMs: 120000, model })
-  if (!candidate) return null
+  if (!candidate) {
+    if (exhaustedModels.has(model)) quotaExhaustedThisRun = true
+    return null
+  }
   const text = candidateText(candidate)
   if (!text) return null
   const sources = (candidate.groundingMetadata?.groundingChunks || [])
@@ -159,7 +181,7 @@ function candidateText(candidate) {
 async function requestGemini(body, { retries, timeoutMs, model }) {
   const key = process.env.GEMINI_API_KEY
   if (!key) return null
-  if (quotaExhaustedThisRun) return null
+  if (exhaustedModels.has(model)) return null
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
@@ -204,7 +226,7 @@ async function requestGemini(body, { retries, timeoutMs, model }) {
           continue
         }
         const quotaExceeded = res.status === 429 && !quota.perMinuteOnly && /exceeded your current quota/i.test(errText)
-        if (quotaExceeded) quotaExhaustedThisRun = true
+        if (quotaExceeded) exhaustedModels.add(model)
         if (!quotaExceeded && (res.status === 429 || res.status >= 500) && attempt < retries) {
           await sleep(2000 * (attempt + 1))
           continue

@@ -160,7 +160,7 @@ function loadPreviousBodies() {
 // (2026-09-11に発覚)。そこで未翻訳分をまとめて1回のGemini呼び出しで一括翻訳する方式に変更。
 // API呼び出し回数が最大24記事でも1回で済むため、レート制限の影響をほぼ受けない。
 const TRANSLATE_CHUNK_SIZE = 5
-const TRANSLATE_MAX_CHUNKS_PER_RUN = 3
+const TRANSLATE_MAX_CHUNKS_PER_RUN = 2 // 1回の実行が長引かないよう控えめに(ステップのtimeout-minutes: 8)
 
 async function translateArticlesBatch(items) {
   if (items.length === 0) return new Map()
@@ -171,7 +171,7 @@ async function translateArticlesBatch(items) {
 
 入力:
 ${JSON.stringify(input)}`
-  const text = await callGemini(prompt, { asJson: true, role: 'news', retries: 1, timeoutMs: 90000 })
+  const text = await callGemini(prompt, { asJson: true, role: 'news', retries: 0, timeoutMs: 90000 })
   const parsed = parseGeminiJson(text)
   const map = new Map()
   if (Array.isArray(parsed)) {
