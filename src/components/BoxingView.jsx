@@ -10,6 +10,17 @@ import { highlightSearchUrl } from '../utils/highlightLink.js'
 const boxingArticles = articles.filter((a) => a.sport === 'boxing')
 const SUB_TABS = ['試合予定', '試合結果', '読み物']
 
+// 「試合結果」タブに出すのは直近3か月分だけにする(結果は毎月増え続けるので、タブが長くなりすぎないように)。
+// データ(boxingSchedule.jsonのresults)自体は消さずに残すので、推し選手の「前戦」表示などには古い結果も使われる。
+const RESULTS_DISPLAY_MONTHS = 3
+
+function recentResults(results) {
+  const since = new Date()
+  since.setMonth(since.getMonth() - RESULTS_DISPLAY_MONTHS)
+  const sinceStr = since.toISOString().slice(0, 10)
+  return (results || []).filter((r) => r.date >= sinceStr)
+}
+
 function formatDate(iso) {
   const d = new Date(iso)
   const w = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
@@ -221,10 +232,10 @@ export default function BoxingView() {
       {subTab === '試合結果' && (
         <>
           <p className="muted boxing-note">
-            ※ ボクシングは無料APIが無いため、試合結果は選手のWikipedia記事からAIが読み取って自動で反映しています（最終更新: {boxingData.updatedAt}）
+            ※ ボクシングは無料APIが無いため、試合結果は選手のWikipedia記事からAIが読み取って自動で反映しています（直近{RESULTS_DISPLAY_MONTHS}か月分を表示・最終更新: {boxingData.updatedAt}）
           </p>
           <div className="game-list">
-            {[...(boxingData.results || [])].reverse().map((r, i) => (
+            {[...recentResults(boxingData.results)].reverse().map((r, i) => (
               <div key={i} className="game-card boxing-card">
                 <div className="game-card-status">{formatDate(r.date)}</div>
                 <div className="boxing-card-title">{r.cardName}</div>
@@ -250,8 +261,8 @@ export default function BoxingView() {
                 </a>
               </div>
             ))}
-            {(!boxingData.results || boxingData.results.length === 0) && (
-              <p className="muted">試合結果はまだありません</p>
+            {recentResults(boxingData.results).length === 0 && (
+              <p className="muted">直近{RESULTS_DISPLAY_MONTHS}か月の試合結果はまだありません</p>
             )}
           </div>
         </>
