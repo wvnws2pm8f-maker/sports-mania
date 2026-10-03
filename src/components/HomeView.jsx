@@ -785,7 +785,11 @@ export default function HomeView() {
                       <div className="news-card-desc">{a.descriptionJa || a.description}</div>
                       <div className="news-card-time">
                         {timeAgo(a.published)}
-                        {bodyText && (isExpanded ? ' ・ ▲ とじる' : ' ・ ▼ 全文を読む')}
+                        {bodyText
+                          ? isExpanded
+                            ? ' ・ ▲ とじる'
+                            : ' ・ ▼ 全文を読む'
+                          : a.link && (isExpanded ? ' ・ ▲ とじる' : ' ・ ▼ 元記事へ')}
                       </div>
                     </div>
                   </button>
@@ -803,6 +807,22 @@ export default function HomeView() {
                       {bodyText.split('\n\n').map((p, i) => (
                         <p key={i}>{p}</p>
                       ))}
+                      <a className="news-card-original-link" href={a.link} target="_blank" rel="noreferrer">
+                        元記事(ESPN)を見る ↗
+                      </a>
+                    </div>
+                  )}
+                  {/* 本文が無い記事(動画クリップ等)や、本文をまだ取得できていない記事は、
+                      タップしても何も起きなかったので、代わりにESPNの元記事へのリンクを出す */}
+                  {isExpanded && !bodyText && a.link && (
+                    <div className="news-card-full-body">
+                      <div className="news-card-untranslated-note">
+                        {/\/video\//.test(a.link)
+                          ? '※ この記事は動画です。ESPNのサイトでご覧ください'
+                          : a.noBody
+                            ? '※ この記事は本文を取得できませんでした。ESPNのサイトでお読みください'
+                            : '※ 本文を準備中です(しばらくすると読めるようになります)'}
+                      </div>
                       <a className="news-card-original-link" href={a.link} target="_blank" rel="noreferrer">
                         元記事(ESPN)を見る ↗
                       </a>

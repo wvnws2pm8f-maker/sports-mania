@@ -31,20 +31,52 @@ function sleep(ms) {
 // 動画ハイライトなど)でGeminiが前置き文や説明を付けて返し、JSON parseに失敗することが
 // あったため、これで確実にJSONだけを返させる。
 export async function callGemini(prompt, { asJson = false, retries = 2 } = {}) {
+  const body = { contents: [{ parts: [{ text: prompt }] }] }
+  if (asJson) body.generationConfig = { responseMimeType: 'application/json' }
+  const candidate = await requestGemini(body, { retries, timeoutMs: 30000 })
+  return candidate ? candidateText(candidate) : null
+}
+
+// Google検索(グラウンディング)付きで呼び出す。Geminiが実際にWeb検索した結果を元に答えさせ、
+// 参照したページのURLをsourcesとして返す(sourcesが空=検索結果に基づいていない回答なので、
+// 呼び出し側で「根拠なし」として捨てられるようにするため)。検索付きはresponseMimeTypeとの
+// 併用ができないので、JSONが欲しい場合はプロンプトで指示してparseGeminiJsonで取り出すこと。
+// 検索を挟む分だけ応答が遅いので、タイムアウトは通常の呼び出しより長めにしている。
+export async function callGeminiWithSearch(prompt, { retries = 2 } = {}) {
+  const body = { contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }] }
+  const candidate = await requestGemini(body, { retries, timeoutMs: 120000 })
+  if (!candidate) return null
+  const text = candidateText(candidate)
+  if (!text) return null
+  const sources = (candidate.groundingMetadata?.groundingChunks || [])
+    .map((c) => c.web?.uri)
+    .filter(Boolean)
+  return { text, sources }
+}
+
+// 検索付きの応答はテキストが複数のpartに分かれて返ることがあるので全部つなげる
+function candidateText(candidate) {
+  const text = (candidate.content?.parts || []).map((p) => p.text || '').join('').trim()
+  if (!text) {
+    console.error(`Gemini returned no text (finishReason=${candidate.finishReason || 'unknown'})`)
+    return null
+  }
+  return text
+}
+
+async function requestGemini(body, { retries, timeoutMs }) {
   const key = process.env.GEMINI_API_KEY
   if (!key) return null
   if (quotaExhaustedThisRun) return null
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const body = { contents: [{ parts: [{ text: prompt }] }] }
-      if (asJson) body.generationConfig = { responseMimeType: 'application/json' }
 
       // タイムアウトが無いと、通信が詰まった時にワークフローのステップ全体が
       // timeout-minutesいっぱいまで固まってしまい、その回の結果が何も保存されない
       // (2026-09-20、fetch-news.mjsの本文取得で発覚した同種の不具合と同じ対策)。
       const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), 30000)
+      const timer = setTimeout(() => controller.abort(), timeoutMs)
       let res
       try {
         res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`, {
@@ -78,12 +110,11 @@ export async function callGemini(prompt, { asJson = false, retries = 2 } = {}) {
       }
       const data = await res.json()
       const candidate = data.candidates?.[0]
-      const text = candidate?.content?.parts?.[0]?.text?.trim()
-      if (!text) {
-        console.error(`Gemini returned no text (finishReason=${candidate?.finishReason || 'unknown'})`)
+      if (!candidate) {
+        console.error('Gemini returned no candidates')
         return null
       }
-      return text
+      return candidate
     } catch (err) {
       console.error(`Gemini API call failed: ${err.message}`)
       if (attempt < retries) {
@@ -100,7 +131,14 @@ export async function callGemini(prompt, { asJson = false, retries = 2 } = {}) {
 // (asJson:trueで呼んでいれば通常はそのままparseできるが、念のため残す)
 export function parseGeminiJson(text) {
   if (!text) return null
-  const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
+  let cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
+  // 検索付き呼び出し(responseMimeType不可)では前置き文の後にJSONが続くことがあるので、
+  // 素のままparseできない時は最初の{か[から最後の}か]までを取り出して試す
+  if (!/^[[{]/.test(cleaned)) {
+    const start = cleaned.search(/[[{]/)
+    const end = Math.max(cleaned.lastIndexOf('}'), cleaned.lastIndexOf(']'))
+    if (start >= 0 && end > start) cleaned = cleaned.slice(start, end + 1)
+  }
   try {
     return JSON.parse(cleaned)
   } catch (err) {
