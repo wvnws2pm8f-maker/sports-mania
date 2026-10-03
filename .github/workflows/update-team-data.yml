@@ -29,6 +29,7 @@ jobs:
         run: node scripts/fetch-team-details.mjs
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # 未設定でも動く(好調チームの一言解説が付かないだけ)
+          GEMINI_MODEL_COMMENTARY: ${{ vars.GEMINI_MODEL_COMMENTARY }} # 未設定なら scripts/gemini.mjs の既定モデル
 
       - name: Fetch season milestones (playoffs countdown)
         run: node scripts/fetch-season-milestones.mjs

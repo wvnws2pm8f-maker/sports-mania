@@ -4,7 +4,60 @@
 // GEMINI_API_KEY を workflow の env: 経由で渡している。
 // 2026-09時点: gemini-2.0-flash は廃止され、gemini-3.6-flash への切り替えが必要
 // (実際にワークフロー実行時に "model ... is no longer available" エラーで判明した)。
-const MODEL = 'gemini-3.6-flash'
+//
+// 【用途ごとにモデルを分けている理由(2026-10-03)】
+// 無料枠はモデルごとに別々に数えられる。Google AI Studioのレート制限画面で確認したところ、
+// gemini-3.6-flash の無料枠は 1日20回・1分5回 しかなく、15分おきのニュース翻訳だけで
+// 使い切っていた(ニュース翻訳が何時間も止まっていた本当の原因)。一方 Gemma 4 は
+// 1分30回で別枠。そこで:
+//   - news(見出し翻訳)      → Gemma 4 31B
+//   - commentary(一言解説)  → Gemma 4 26B
+//   - search(ボクシングのWeb検索) → gemini-3.6-flash(Google検索が使えるのはGeminiだけ)
+// GemmaのモデルIDは実行時にモデル一覧APIから探す(IDの細かい表記を推測に頼らないため)。
+// GitHubのリポジトリ変数 GEMINI_MODEL_NEWS / GEMINI_MODEL_COMMENTARY / GEMINI_MODEL_SEARCH を
+// 設定すれば、コードを変えずにモデルを差し替えられる。
+const MODEL_ROLES = {
+  news: { env: 'GEMINI_MODEL_NEWS', match: /^gemma-4-31b/, fallback: 'gemma-4-31b-it' },
+  commentary: { env: 'GEMINI_MODEL_COMMENTARY', match: /^gemma-4-26b/, fallback: 'gemma-4-26b-it' },
+  search: { env: 'GEMINI_MODEL_SEARCH', match: null, fallback: 'gemini-3.6-flash' }
+}
+
+let modelListPromise = null
+async function listModelIds(key) {
+  if (!modelListPromise) {
+    modelListPromise = (async () => {
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=${key}`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        return (data.models || [])
+          .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
+          .map((m) => m.name.replace(/^models\//, ''))
+      } catch (err) {
+        console.error(`Gemini model list failed: ${err.message}`)
+        return []
+      }
+    })()
+  }
+  return modelListPromise
+}
+
+const resolvedModels = new Map()
+export async function resolveModel(role) {
+  if (resolvedModels.has(role)) return resolvedModels.get(role)
+  const cfg = MODEL_ROLES[role]
+  let model = process.env[cfg.env] || null
+  if (!model && cfg.match) {
+    const ids = await listModelIds(process.env.GEMINI_API_KEY)
+    model = ids.find((id) => cfg.match.test(id)) || null
+  }
+  model = model || cfg.fallback
+  console.log(`Gemini model for ${role}: ${model}`)
+  resolvedModels.set(role, model)
+  return model
+}
+
+const isGemma = (model) => /^gemma/i.test(model)
 
 export function hasGeminiKey() {
   return Boolean(process.env.GEMINI_API_KEY)
@@ -57,10 +110,15 @@ function sleep(ms) {
 // (responseMimeType)。プロンプトの指示だけに頼ると、内容が単純な記事(見出し=要約の
 // 動画ハイライトなど)でGeminiが前置き文や説明を付けて返し、JSON parseに失敗することが
 // あったため、これで確実にJSONだけを返させる。
-export async function callGemini(prompt, { asJson = false, retries = 2 } = {}) {
+// role: 'news' | 'commentary'(上のMODEL_ROLES参照)。
+// GemmaはJSONモード(responseMimeType)に対応していないので、Gemmaの時はプロンプトの指示だけに頼り、
+// 呼び出し側のparseGeminiJsonで前置き文などを剥がして取り出す。
+export async function callGemini(prompt, { asJson = false, retries = 2, role = 'news' } = {}) {
+  if (!hasGeminiKey()) return null
+  const model = await resolveModel(role)
   const body = { contents: [{ parts: [{ text: prompt }] }] }
-  if (asJson) body.generationConfig = { responseMimeType: 'application/json' }
-  const candidate = await requestGemini(body, { retries, timeoutMs: 30000 })
+  if (asJson && !isGemma(model)) body.generationConfig = { responseMimeType: 'application/json' }
+  const candidate = await requestGemini(body, { retries, timeoutMs: 60000, model })
   return candidate ? candidateText(candidate) : null
 }
 
@@ -70,8 +128,10 @@ export async function callGemini(prompt, { asJson = false, retries = 2 } = {}) {
 // 併用ができないので、JSONが欲しい場合はプロンプトで指示してparseGeminiJsonで取り出すこと。
 // 検索を挟む分だけ応答が遅いので、タイムアウトは通常の呼び出しより長めにしている。
 export async function callGeminiWithSearch(prompt, { retries = 2 } = {}) {
+  if (!hasGeminiKey()) return null
+  const model = await resolveModel('search')
   const body = { contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }] }
-  const candidate = await requestGemini(body, { retries, timeoutMs: 120000 })
+  const candidate = await requestGemini(body, { retries, timeoutMs: 120000, model })
   if (!candidate) return null
   const text = candidateText(candidate)
   if (!text) return null
@@ -81,9 +141,14 @@ export async function callGeminiWithSearch(prompt, { retries = 2 } = {}) {
   return { text, sources }
 }
 
-// 検索付きの応答はテキストが複数のpartに分かれて返ることがあるので全部つなげる
+// 検索付きの応答はテキストが複数のpartに分かれて返ることがあるので全部つなげる。
+// 思考過程(thought: true のpart)を返すモデルもあるので、それは除く。
 function candidateText(candidate) {
-  const text = (candidate.content?.parts || []).map((p) => p.text || '').join('').trim()
+  const text = (candidate.content?.parts || [])
+    .filter((p) => !p.thought)
+    .map((p) => p.text || '')
+    .join('')
+    .trim()
   if (!text) {
     console.error(`Gemini returned no text (finishReason=${candidate.finishReason || 'unknown'})`)
     return null
@@ -91,7 +156,7 @@ function candidateText(candidate) {
   return text
 }
 
-async function requestGemini(body, { retries, timeoutMs }) {
+async function requestGemini(body, { retries, timeoutMs, model }) {
   const key = process.env.GEMINI_API_KEY
   if (!key) return null
   if (quotaExhaustedThisRun) return null
@@ -106,7 +171,7 @@ async function requestGemini(body, { retries, timeoutMs }) {
       const timer = setTimeout(() => controller.abort(), timeoutMs)
       let res
       try {
-        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`, {
+        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),

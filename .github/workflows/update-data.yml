@@ -52,6 +52,7 @@ jobs:
         continue-on-error: true # このステップが詰まって失敗しても、順位表・試合結果のコミットは止めない
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # 未設定でも動く(翻訳なしの英語表示になるだけ)
+          GEMINI_MODEL_NEWS: ${{ vars.GEMINI_MODEL_NEWS }} # 未設定なら scripts/gemini.mjs の既定モデル
 
       # F1はESPNではなくJolpica-F1(F1専用の無料API、無認証で200リクエスト/時間まで)を使う。
       # レース結果は年間24戦程度で15分おきの頻度は過剰だが、呼び出し回数がごく少なく
