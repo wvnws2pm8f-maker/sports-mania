@@ -113,12 +113,12 @@ function sleep(ms) {
 // role: 'news' | 'commentary'(上のMODEL_ROLES参照)。
 // GemmaはJSONモード(responseMimeType)に対応していないので、Gemmaの時はプロンプトの指示だけに頼り、
 // 呼び出し側のparseGeminiJsonで前置き文などを剥がして取り出す。
-export async function callGemini(prompt, { asJson = false, retries = 2, role = 'news' } = {}) {
+export async function callGemini(prompt, { asJson = false, retries = 2, role = 'news', timeoutMs = 60000 } = {}) {
   if (!hasGeminiKey()) return null
   const model = await resolveModel(role)
   const body = { contents: [{ parts: [{ text: prompt }] }] }
   if (asJson && !isGemma(model)) body.generationConfig = { responseMimeType: 'application/json' }
-  const candidate = await requestGemini(body, { retries, timeoutMs: 60000, model })
+  const candidate = await requestGemini(body, { retries, timeoutMs, model })
   return candidate ? candidateText(candidate) : null
 }
 

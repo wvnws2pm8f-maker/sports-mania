@@ -266,8 +266,11 @@ async function main() {
 - 誇張しすぎず、この勝敗数という事実に基づいた表現にする
 - 選手名や具体的なプレー内容など、示していない情報は書かない
 - 出力はキャッチコピーの文章のみ。前置き・引用符・説明は不要`
-      const text = await callGemini(prompt, { role: 'commentary' })
-      if (text) t.commentary = text.replace(/^["「]|["」]$/g, '').trim()
+      // Gemma(2026-10-03〜)は応答が遅いことがあるので、1回あたりの待ち時間と再試行を絞り、
+      // 1件でも失敗したら(混雑・枠切れ等)残りは今日は諦める(ワークフローが長時間止まらないように)。
+      const text = await callGemini(prompt, { role: 'commentary', retries: 1, timeoutMs: 45000 })
+      if (!text) break
+      t.commentary = text.replace(/^["「]|["」]$/g, '').trim()
     }
     console.log(`commentary: ${hotTeams.filter((t) => t.commentary).length}/${hotTeams.length}`)
   }
