@@ -335,8 +335,11 @@ async function main() {
 
   if (scheduleChanged) schedule.updatedAt = today
   if (profilesChanged) profiles.updatedAt = today
-  schedule.autoUpdate = state
-  writeFileSync(SCHEDULE_URL, toJson(schedule))
+  // 検索の記録(autoUpdate)は、実際に検索できた時だけ変わる。何も変わらなかった回に
+  // 空の記録だけを書き込んでコミット・再デプロイしないよう、変化がある時だけ書き出す。
+  if (JSON.stringify(state) !== JSON.stringify(schedule.autoUpdate || {})) schedule.autoUpdate = state
+  const scheduleJson = toJson(schedule)
+  if (scheduleJson !== readFileSync(SCHEDULE_URL, 'utf8')) writeFileSync(SCHEDULE_URL, scheduleJson)
   if (profilesChanged) writeFileSync(PROFILES_URL, toJson(profiles))
   console.log(`完了: 試合データ${scheduleChanged ? '更新あり' : '変更なし'} / 選手の近況${profilesChanged ? '更新あり' : '変更なし'}`)
 }

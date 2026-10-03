@@ -22,6 +22,33 @@ export function hasQuotaExhausted() {
   return quotaExhaustedThisRun
 }
 
+// 429エラー本文のdetailsから、どの上限(quotaId)に当たったかと、何秒待てばよいか(retryDelay)を取り出す。
+// perMinuteOnly: 当たった上限がすべて「1分あたり」で、待てば回復するもの(1日の上限や、
+// 無料枠では使えない機能=上限0 は含まない)。retryDelayが60秒を超える場合も待たずに諦める。
+function parseQuotaError(text) {
+  const result = { message: '', violations: [], perMinuteOnly: false, retryDelaySec: null }
+  let err
+  try {
+    err = JSON.parse(text).error
+  } catch {
+    return result
+  }
+  result.message = String(err?.message || '').trim()
+  let allPerMinute = true
+  for (const d of err?.details || []) {
+    for (const v of d.violations || []) {
+      if (!v.quotaId) continue
+      result.violations.push(`${v.quotaId}${v.quotaValue != null ? ` limit=${v.quotaValue}` : ''}`)
+      if (!/PerMinute/i.test(v.quotaId) || String(v.quotaValue) === '0') allPerMinute = false
+    }
+    const m = /^(\d+(?:\.\d+)?)s$/.exec(d.retryDelay || '')
+    if (m) result.retryDelaySec = Math.ceil(Number(m[1]))
+  }
+  result.perMinuteOnly =
+    result.violations.length > 0 && allPerMinute && (result.retryDelaySec == null || result.retryDelaySec <= 60)
+  return result
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -90,17 +117,28 @@ async function requestGemini(body, { retries, timeoutMs }) {
       }
       if (!res.ok) {
         // 429(レート制限)や5xxは少し待って再試行する。それ以外(400等)は再試行しても無駄なので諦める。
-        const errText = (await res.text()).slice(0, 300)
-        console.error(`Gemini API error ${res.status}: ${errText}`)
+        const errText = await res.text()
+        const quota = parseQuotaError(errText)
+        // エラー本文は長いので、どの上限に当たったか(quotaId)が分かる部分だけを要約して出す。
+        // 以前は先頭300文字だけ出していたため肝心のquotaIdが切れて見えず、
+        // 「1分あたりの上限」か「1日の上限」か区別できなかった(2026-10-03)。
+        console.error(
+          `Gemini API error ${res.status}: ${quota.message || errText.slice(0, 300)}` +
+            (quota.violations.length ? ` [${quota.violations.join(', ')}]` : '') +
+            (quota.retryDelaySec != null ? ` retryDelay=${quota.retryDelaySec}s` : '')
+        )
         // 【重要・2026-09-22発覚】429には2種類あり、区別せず一律リトライしていたことが
         // 「本文翻訳が0件のまま」の原因になっていた。一時的なレート制限(1分あたりの上限)は
-        // 数秒待てば回復するが、"exceeded your current quota"は日次/月次クォータ自体を
-        // 使い切った状態で、数秒〜数十秒待っても回復しない。それにも関わらず毎回2回リトライ
-        // していたため、1回の記事翻訳あたり最大3倍の無駄な呼び出しでクォータを消費し、
-        // 15分おきの実行が積み重なって日次クォータを早々に使い切り、本文翻訳が
-        // いつまで経っても成功しない状態が続いていた。クォータ超過と判定できた場合は
-        // 即座に諦め、無駄なリトライでクォータをこれ以上消費しないようにする。
-        const quotaExceeded = res.status === 429 && /exceeded your current quota/i.test(errText)
+        // 数秒待てば回復するが、日次クォータ自体を使い切った状態は待っても回復しない。
+        // ただし"exceeded your current quota"という文面は両方で同じなので、文面ではなく
+        // details内のquotaIdで判定する(2026-10-03、1分あたりの上限に当たっただけなのに
+        // 日次クォータ切れと誤判定し、ニュース翻訳を何時間も止めていたため)。
+        // 1分あたりの上限だけなら、指示された時間(retryDelay)待って再試行する。
+        if (res.status === 429 && quota.perMinuteOnly && attempt < retries) {
+          await sleep(((quota.retryDelaySec ?? 30) + 1) * 1000)
+          continue
+        }
+        const quotaExceeded = res.status === 429 && !quota.perMinuteOnly && /exceeded your current quota/i.test(errText)
         if (quotaExceeded) quotaExhaustedThisRun = true
         if (!quotaExceeded && (res.status === 429 || res.status >= 500) && attempt < retries) {
           await sleep(2000 * (attempt + 1))
