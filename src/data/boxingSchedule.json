@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-03",
+  "updatedAt": "2026-10-05",
   "note": "ボクシングは安定した無料APIが無いため、試合結果はGitHub Actions(scripts/update-boxing-data.mjs)が毎日、選手本人のWikipedia記事の戦績表からAI(Gemma)に読み取らせて反映しています(相手の名前・日付・試合方法の数字が記事に書かれているか、勝敗が両選手の記事で一致するかを確かめたものだけ)。今後の試合の追加と、引き分け・無効試合・中止は自動では反映しないので手動で直すこと。",
   "results": [
     {
@@ -89,16 +89,18 @@
       "winner": "リカルド・マラジカ",
       "method": "判定(Split Decision, 12回)",
       "note": "坪井智也は目の上のカットに苦しみ、僅差の判定で王座獲得ならず"
-    }
-  ],
-  "fights": [
+    },
     {
       "date": "2026-10-03",
       "venue": "Utilita Arena, Birmingham",
       "cardName": "Ben Whittaker vs Conor Wallace（IBF ライトヘビー級 最終予選）",
       "fighters": ["Ben Whittaker", "Conor Wallace"],
-      "broadcast": "DAZN"
-    },
+      "winner": "Ben Whittaker",
+      "method": "判定(Unanimous Decision 117-111, 116-112, 115-113, 12回)",
+      "note": "序盤から9回まで優勢に進めたが、終盤3Rにウォレスの猛反撃を受け12回に3度ダウン。それでも判定を死守し、ビボルへのIBF世界ライトヘビー級挑戦権を獲得"
+    }
+  ],
+  "fights": [
     {
       "date": "2026-10-10",
       "venue": "Wintrust Arena, Chicago",
