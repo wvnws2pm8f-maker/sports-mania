@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-18",
+  "updatedAt": "2026-10-25",
   "note": "ボクシングは安定した無料APIが無いため、試合結果はGitHub Actions(scripts/update-boxing-data.mjs)が毎日、選手本人のWikipedia記事の戦績表からAI(Gemma)に読み取らせて反映しています(相手の名前・日付・試合方法の数字が記事に書かれているか、勝敗が両選手の記事で一致するかを確かめたものだけ)。今後の試合の追加と、引き分け・無効試合・中止は自動では反映しないので手動で直すこと。",
   "results": [
     {
@@ -114,6 +114,22 @@
       "fighters": ["Daniel Dubois", "Fabio Wardley"],
       "winner": "Daniel Dubois",
       "method": "TKO(2回2分21秒)"
+    },
+    {
+      "date": "2026-10-24",
+      "venue": "Frost Bank Center, San Antonio",
+      "cardName": "Emanuel Navarrete vs O'Shaquie Foster（WBO・IBF・WBC世界スーパーフェザー級王座統一戦）",
+      "fighters": ["Emanuel Navarrete", "O'Shaquie Foster"],
+      "winner": "O'Shaquie Foster",
+      "method": "判定(Unanimous Decision, 12回)"
+    },
+    {
+      "date": "2026-10-24",
+      "venue": "Utilita Arena, Sheffield",
+      "cardName": "Dalton Smith vs Alberto Puello（WBC世界スーパーライト級タイトルマッチ、スミスの初防衛戦）",
+      "fighters": ["Dalton Smith", "Alberto Puello"],
+      "winner": "Dalton Smith",
+      "method": "判定(Split Decision, 12回)"
     }
   ],
   "fights": [
@@ -123,19 +139,6 @@
       "cardName": "ブランドン・フィゲロア vs 亀田和毅（WBA世界フェザー級タイトルマッチ、フィゲロアの初防衛戦・亀田は世界3階級制覇に挑戦）",
       "fighters": ["ブランドン・フィゲロア", "亀田和毅"],
       "broadcast": "DAZN・TNT"
-    },
-    {
-      "date": "2026-10-24",
-      "venue": "Frost Bank Center, San Antonio",
-      "cardName": "Emanuel Navarrete vs O'Shaquie Foster（WBO・IBF・WBC世界スーパーフェザー級王座統一戦）",
-      "fighters": ["Emanuel Navarrete", "O'Shaquie Foster"],
-      "broadcast": "DAZN"
-    },
-    {
-      "date": "2026-10-24",
-      "venue": "Utilita Arena, Sheffield",
-      "cardName": "Dalton Smith vs Alberto Puello（WBC世界スーパーライト級タイトルマッチ、スミスの初防衛戦）",
-      "fighters": ["Dalton Smith", "Alberto Puello"]
     },
     {
       "date": "2026-10-31",
