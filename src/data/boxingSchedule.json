@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-25",
+  "updatedAt": "2026-11-02",
   "note": "ボクシングは安定した無料APIが無いため、試合結果はGitHub Actions(scripts/update-boxing-data.mjs)が毎日、選手本人のWikipedia記事の戦績表からAI(Gemma)に読み取らせて反映しています(相手の名前・日付・試合方法の数字が記事に書かれているか、勝敗が両選手の記事で一致するかを確かめたものだけ)。今後の試合の追加と、引き分け・無効試合・中止は自動では反映しないので手動で直すこと。",
   "results": [
     {
@@ -130,6 +130,14 @@
       "fighters": ["Dalton Smith", "Alberto Puello"],
       "winner": "Dalton Smith",
       "method": "判定(Split Decision, 12回)"
+    },
+    {
+      "date": "2026-10-31",
+      "venue": "Riyadh, Saudi Arabia",
+      "cardName": "Christian Mbilli vs Canelo Álvarez（WBC世界スーパーミドル級タイトルマッチ、カネロの王座奪還挑戦）",
+      "fighters": ["Christian Mbilli", "Canelo Álvarez"],
+      "winner": "Canelo Álvarez",
+      "method": "判定(Unanimous Decision 115-112, 116-111, 117-110, 12回)"
     }
   ],
   "fights": [
@@ -139,12 +147,6 @@
       "cardName": "ブランドン・フィゲロア vs 亀田和毅（WBA世界フェザー級タイトルマッチ、フィゲロアの初防衛戦・亀田は世界3階級制覇に挑戦）",
       "fighters": ["ブランドン・フィゲロア", "亀田和毅"],
       "broadcast": "DAZN・TNT"
-    },
-    {
-      "date": "2026-10-31",
-      "venue": "Riyadh, Saudi Arabia",
-      "cardName": "Christian Mbilli vs Canelo Álvarez（WBC世界スーパーミドル級タイトルマッチ、カネロの王座奪還挑戦）",
-      "fighters": ["Christian Mbilli", "Canelo Álvarez"]
     },
     {
       "date": "2026-11-07",
